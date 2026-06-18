@@ -24,5 +24,14 @@ under `wiki/`). Do not duplicate them here.
 
 ## Status
 
-Greenfield — only the wiki exists so far; no app code yet. When code lands, expand
-this file (e.g. via `/init`) with the real build / test / run commands.
+Early implementation. The **agent-side core** has landed (`src/`): the command
+schema types, the v1 command catalog (`commands`), and the Anthropic adapter
+(`tools.anthropic`, `adapters`). Pure TypeScript — no molstar/React yet (the
+browser-side executor, the React mount, and the demo are later plans; see
+`docs/superpowers/plans/`).
+
+Commands:
+- `pnpm test` — run the Vitest suite (`pnpm test:watch` to watch)
+- `pnpm typecheck` — `tsc --noEmit`
+
+No build step yet (tests run on TS source via Vitest); packaging is a later plan.
