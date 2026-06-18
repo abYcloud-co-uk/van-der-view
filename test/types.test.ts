@@ -6,7 +6,7 @@ describe('CommandResult helpers', () => {
     expect(ok({ loaded: true })).toEqual({ ok: true, data: { loaded: true } });
   });
 
-  it('ok() with no data omits an undefined payload meaningfully', () => {
+  it('ok() with no data yields data: undefined', () => {
     expect(ok()).toEqual({ ok: true, data: undefined });
   });
 
