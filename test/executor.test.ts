@@ -104,3 +104,48 @@ describe('createExecutor — highlight/focus', () => {
     expect(errorOf(res).code).toBe('unsupported_selection');
   });
 });
+
+describe('createExecutor — load-structure + input validation', () => {
+  it('resolves a PDB id and calls loadStructure with the RCSB url', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'load-structure',
+      input: { source: 'pdb', id: '1crn' },
+    });
+    expect(res.ok).toBe(true);
+    expect(ctx.loadStructure).toHaveBeenCalledWith({
+      url: 'https://files.rcsb.org/download/1CRN.cif',
+      format: 'mmcif',
+    });
+  });
+
+  it('uses a host resolveStructure override when provided', async () => {
+    const ctx = fakeContext();
+    const resolveStructure = vi.fn(async () => ({ data: 'INLINE', format: 'pdb' as const }));
+    const res = await createExecutor(ctx, { resolveStructure }).dispatch({
+      name: 'load-structure',
+      input: { source: 'inline', data: 'INLINE', format: 'pdb' },
+    });
+    expect(res.ok).toBe(true);
+    expect(resolveStructure).toHaveBeenCalledOnce();
+    expect(ctx.loadStructure).toHaveBeenCalledWith({ data: 'INLINE', format: 'pdb' });
+  });
+
+  it('returns invalid_input for load-structure missing required fields', async () => {
+    const res = await createExecutor(fakeContext()).dispatch({
+      name: 'load-structure',
+      input: { source: 'pdb' },
+    });
+    expect(errorOf(res).code).toBe('invalid_input');
+  });
+
+  it('returns invalid_input when input is not an object', async () => {
+    const res = await createExecutor(fakeContext()).dispatch({ name: 'highlight', input: '[]' });
+    expect(errorOf(res).code).toBe('invalid_input');
+  });
+
+  it('returns invalid_input when selection is missing', async () => {
+    const res = await createExecutor(fakeContext()).dispatch({ name: 'highlight', input: {} });
+    expect(errorOf(res).code).toBe('invalid_input');
+  });
+});
