@@ -34,4 +34,14 @@ describe('defaultResolveStructure', () => {
   it('rejects inline without data', async () => {
     await expect(defaultResolveStructure({ source: 'inline' })).rejects.toThrow(ResolveError);
   });
+
+  it('rejects a non-string id instead of crashing on toUpperCase()', async () => {
+    await expect(defaultResolveStructure({ source: 'pdb', id: 1234 } as any)).rejects.toThrow(ResolveError);
+  });
+
+  it('rejects an invalid format value', async () => {
+    await expect(
+      defaultResolveStructure({ source: 'url', url: 'https://x/y', format: 42 } as any),
+    ).rejects.toThrow(ResolveError);
+  });
 });
