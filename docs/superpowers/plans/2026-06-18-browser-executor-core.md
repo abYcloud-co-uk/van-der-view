@@ -786,4 +786,13 @@ git commit -m "test: load-structure handler + malformed-input -> CommandResult e
 - `ExecutorContext.clearHighlight()` is declared on the port but **unwired** in Plan 2 (no v1 command, no caller). Wire it to `interactivity.lociHighlights.clearHighlights()` in the adapter, and decide whether to surface a `clear-highlight` command.
 - The v1 command schema advertises `highlight.style` and `focus.zoomOut` (`src/commands.ts`), but the Plan-2 executor **drops** them (highlight uses only `selection`; focus forwards only `durationMs`). Implement them when the real representation/camera calls land — `style` via `builders.structure.representation`/`updateRepresentationsTheme`, `zoomOut` via the `focusLoci` options.
 - Public entry point for the executor (subpath export vs main barrel) — packaging decision.
+
+### Deferred review findings (carried from the post-Plan-2 code review)
+
+The Plan-2 hardening pass validated the executor's input boundary (chain/residues/numbering/preset/format type-and-value checks, reversed-range normalization, a shared `ErrorCode` union, a defensive copy in `get-scene-context`). These reviewed items were intentionally **deferred**:
+
+- **Multi-model structures:** `StructureSelection.toLociWithSourceUnits` unions matches across *every* model, so on a multi-model (e.g. NMR) `Structure` a chain/residue selector resolves across all models. Plan-2 fixtures are single-model and the selection tests' loci counts assume one model; when real multi-model loading lands, scope the selection to a chosen model.
+- **Host/adapter error codes:** `dispatch`'s catch maps only `ExecutorError` codes (everything else → `internal_error`). A custom `resolveStructure` or the Plan-3 adapter that wants to surface an actionable code (e.g. `not_found`) must throw an `ExecutorError`/subclass. Decide in Plan 3 whether to open `ErrorCode` to host-defined codes.
+- **Residues-without-chain semantics:** a residues-only selection (no `chain`) matches that residue number in *all* chains. The schema permits it (`minProperties: 1`); decide whether to require a chain or document "all chains" as the intended behavior.
+- **Schema-driven validation (possible refactor):** Plan-2 validation is hand-rolled per command/field. A future option is one validator keyed by `command.name` against `CommandSpec.inputSchema` so the shipped JSON Schema (enums, `required`, `additionalProperties:false`) is the single source of truth on the way back in.
 ```
