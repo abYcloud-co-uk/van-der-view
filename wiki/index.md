@@ -7,7 +7,7 @@ the right page. Schema and the three operations are defined in [CLAUDE.md](CLAUD
 > bridges an AI agent and the Mol\* 3D molecular renderer via a lightweight
 > standardized JSON command schema. See [[project-overview]].
 
-_Last updated: 2026-06-18 · 9 pages · 3 sources_
+_Last updated: 2026-06-18 · 9 pages · 4 sources_
 
 ## Clusters
 
@@ -15,7 +15,7 @@ _Last updated: 2026-06-18 · 9 pages · 3 sources_
 | Page | Hook |
 |---|---|
 | [[project-overview]] | Goal, audience/boundary, 5 constraints, locked tech decisions. `decision` `stable` |
-| [[testing-strategy]] | Testing approach — **stub**, deferred to its own brainstorm. `decision` `stub` |
+| [[testing-strategy]] | Automated Node unit tests + a manual Vite demo; rendering/XR verified by hand. `decision` `stable` |
 
 ### Schema / Protocol
 | Page | Hook |
@@ -46,9 +46,10 @@ _Last updated: 2026-06-18 · 9 pages · 3 sources_
 | 0001 | Mol\* integration research (headless, managers, WebXR, React/SSR) |
 | 0002 | MolViewSpec research (node tree, selectors, tooling, limits) |
 | 0003 | Design decisions — 2026-06-18 brainstorming (boundary, architecture, API, v1 catalog) |
+| 0004 | Testing strategy decisions — 2026-06-18 brainstorming (automated Node suite + manual demo) |
 
 ## Open questions (rollup)
-- **Testing strategy** — the headline open thread; its own brainstorm next ([[testing-strategy]])
+- **Selection tests in Node** — confirm Mol\* `Structure`/loci build without WebGL, the premise of the automated selection suite ([[testing-strategy]])
 - **Packaging** — peer-dep on `molstar` vs bundle; one component vs hooks-only ([[project-overview]], [[headless-react]])
 - **Mol\* version** — pin a `5.x` and verify signatures against `.d.ts` ([[molstar-api]])
 - **Command envelope** — batching/transactions, ack/streaming, error-code taxonomy ([[command-schema]])
