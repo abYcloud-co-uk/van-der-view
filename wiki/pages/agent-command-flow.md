@@ -3,7 +3,7 @@ title: Agent Command Flow (adapter + executor)
 slug: agent-command-flow
 type: how-to
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0005-integration-recon-saas-2026-06-18.md]
 updated: 2026-06-18
 links: [command-schema, molstar-api, headless-react, project-overview]
 ---
@@ -98,6 +98,35 @@ for (const block of res.content) {
 ```
 (`dispatch` may also accept the raw block as a convenience overload, but
 conceptually the adapter normalizes first — the executor stays provider-blind.)
+
+## Two integration shapes
+
+Who owns the LLM call decides how the seam is wired (src: raw/0005):
+
+**A — frontend owns the LLM call** (the seam code above). The app registers
+`vdv.tools.anthropic`, calls Claude, and runs `adapters.anthropic.toCommand` on each
+`tool_use` block.
+
+**B — backend owns the LLM call (thin client).** The developer's backend (any
+language) makes the LLM call; the browser is a thin client receiving a *stream* of
+tool calls (e.g. websocket / AppSync Events). Then:
+- the **backend** registers the tools from a **language-neutral JSON** export of
+  `vdv.commands` (so a non-JS agent can use them);
+- the **frontend** maps each incoming tool-call event to a `Command` and calls
+  `viewer.dispatch`. The Anthropic JS adapter is used only if the backend forwards
+  raw Anthropic blocks.
+
+Either way the **provider-agnostic executor + the command schema are the reusable
+core**; only the inbound mapping differs. (First real target — abycloud `apps/saas`
+— is shape B: Python backend, AppSync tool-call events, no frontend LLM SDK.)
+
+### Attach to an existing plugin
+
+The executor can drive a Mol\* instance the host **already mounted** —
+`createMolView({ plugin })` / `<MolViewProvider plugin={…}>` — not only one
+van-der-view created (`PluginUIContext` extends `PluginContext`, so the same
+`managers`/`builders` calls work). Useful when the app already has a Mol\* viewer
+(src: raw/0005).
 
 ## See also
 - [[command-schema]] — the command catalog and `Selection` type

@@ -3,7 +3,7 @@ title: Project Overview — van-der-view
 slug: project-overview
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, "user brief 2026-06-18"]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0005-integration-recon-saas-2026-06-18.md, "user brief 2026-06-18"]
 updated: 2026-06-18
 links: [command-schema, agent-command-flow, molstar-api, molviewspec, molstar-webxr, headless-react, testing-strategy]
 ---
@@ -49,6 +49,11 @@ live changes in a complex Web 3D molecular view.
   raw Mol\*. Executor is provider-agnostic; adapters are per-provider (v1 = Anthropic,
   OpenAI/Codex placeholder). See [[agent-command-flow]] and [[command-schema]].
 - **v1 commands:** load-structure, highlight, focus, get-scene-context, reset-camera.
+- **Integration deltas (from the first real target, src: raw/0005):** `load-structure`
+  adds an `inline` source and routes all loading through a host `resolveStructure`
+  hook (auth/storage stays in the host); the executor can **attach to a host-owned
+  Mol\* plugin**; the developer's LLM call may live in their **backend** (thin-client
+  path). See [[agent-command-flow]] and [[command-schema]].
 
 ## Naming note
 

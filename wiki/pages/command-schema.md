@@ -3,7 +3,7 @@ title: Agent Command Schema (van-der-view contract)
 slug: command-schema
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md]
 updated: 2026-06-18
 links: [agent-command-flow, molviewspec, molstar-api, molstar-webxr, project-overview]
 ---
@@ -53,7 +53,7 @@ executor only ever sees `Command`. See [[agent-command-flow]].
 
 | command | tier | params (sketch) | Mol\* mapping |
 |---|---|---|---|
-| `load-structure` | **v1** | `{ source:"pdb"\|"url", id?, url?, format? }` | `builders.data.download` + `parseTrajectory` + preset ([[molstar-api]]) |
+| `load-structure` | **v1** | `{ source:"pdb"\|"url"\|"inline", id?, url?, data?, format? }` | `download` (pdb/url) or `rawData` (inline) + `parseTrajectory` + preset; via `resolveStructure` ([[molstar-api]]) |
 | `highlight` | **v1** | `{ selection: Selection, style?: {repr?, color?, opacity?} }` | `interactivity.lociHighlights.highlightOnly` or component+representation |
 | `focus` | **v1** | `{ selection: Selection, durationMs?, zoomOut? }` | `managers.camera.focusLoci(loci, …)` |
 | `get-scene-context` | **v1** | `{}` | **read tool** → `getSceneContext()` (the "up" channel) |
@@ -80,6 +80,23 @@ MolScript:
 ```
 ⚠️ Be explicit about `auth` vs `label` numbering — mismatches silently select the
 wrong residues ([[molstar-api]], [[glossary]]).
+
+### Data sourcing — the `resolveStructure` hook
+
+`load-structure` does **not** assume public data. All loading routes through a
+host-configurable resolver so auth / internal storage stay in the host app
+(src: raw/0005 — the first integration target loads inline text and auth-protected
+presigned S3 URLs, not public PDB ids):
+
+```ts
+type LoadInput = { source:'pdb'|'url'|'inline'; id?:string; url?:string; data?:string; format?:'mmcif'|'pdb' };
+type ResolveStructure = (input: LoadInput) => Promise<{ data?:string; url?:string; format:'mmcif'|'pdb' }>;
+```
+
+- `inline` → `builders.data.rawData({ data })`; `pdb`/`url` → `builders.data.download`.
+- The **default** resolver handles `pdb` (RCSB) and a plain `url`. A host **overrides**
+  `MolViewConfig.resolveStructure` to fetch auth-protected sources (e.g. a Bearer-token
+  presigned S3 URL) and return the text. `resolveStructure` is **v1** (src: raw/0005).
 
 ## Hard constraints baked into the schema
 
