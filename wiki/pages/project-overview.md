@@ -3,7 +3,7 @@ title: Project Overview — van-der-view
 slug: project-overview
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0005-integration-recon-saas-2026-06-18.md, "user brief 2026-06-18"]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, "user brief 2026-06-18"]
 updated: 2026-06-18
 links: [command-schema, agent-command-flow, molstar-api, molviewspec, molstar-webxr, headless-react, testing-strategy]
 ---
@@ -29,6 +29,11 @@ live changes in a complex Web 3D molecular view.
 - **Boundary = "library + agent glue":** ships the renderer mount/control, the JSON
   command schema, ready-made LLM tool definitions, and the executor. **No chat UI**
   — that's the developer's (src: raw/0003). See [[agent-command-flow]].
+- **Input modality (incl. voice/VR) is the host's.** In immersive XR the DOM chat is
+  gone, so the user talks to the agent by voice — but voice/STT/agent-loop are the
+  host's, like the chat UI. van-der-view only guarantees commands apply mid-XR and
+  exposes `viewer.xr` state/events; entering XR needs a user gesture, so it can't be
+  voice-triggered (src: raw/0006). See [[molstar-webxr]].
 
 ## Constraints (the hard requirements)
 

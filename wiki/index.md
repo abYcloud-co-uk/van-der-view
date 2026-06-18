@@ -7,7 +7,7 @@ the right page. Schema and the three operations are defined in [CLAUDE.md](CLAUD
 > bridges an AI agent and the Mol\* 3D molecular renderer via a lightweight
 > standardized JSON command schema. See [[project-overview]].
 
-_Last updated: 2026-06-18 · 9 pages · 5 sources_
+_Last updated: 2026-06-18 · 9 pages · 6 sources_
 
 ## Clusters
 
@@ -48,6 +48,7 @@ _Last updated: 2026-06-18 · 9 pages · 5 sources_
 | 0003 | Design decisions — 2026-06-18 brainstorming (boundary, architecture, API, v1 catalog) |
 | 0004 | Testing strategy decisions — 2026-06-18 brainstorming (automated Node suite + manual demo) |
 | 0005 | Integration recon — abycloud saas app + design deltas (inline/resolveStructure, attach-mode, backend-LLM) |
+| 0006 | XR in-VR interaction & voice boundary — enter needs a gesture; voice/UX is the host's; expose viewer.xr |
 
 ## Open questions (rollup)
 - **Selection tests in Node** — confirm Mol\* `Structure`/loci build without WebGL, the premise of the automated selection suite ([[testing-strategy]])

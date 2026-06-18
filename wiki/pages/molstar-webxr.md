@@ -3,7 +3,7 @@ title: Mol* WebXR support
 slug: molstar-webxr
 type: entity
 status: stable
-sources: [raw/0001-molstar-research.md, "https://molstar.org/xr/"]
+sources: [raw/0001-molstar-research.md, raw/0006-xr-voice-boundary-2026-06-18.md, "https://molstar.org/xr/"]
 updated: 2026-06-18
 links: [molstar-api, command-schema, project-overview, testing-strategy]
 ---
@@ -64,6 +64,28 @@ So van-der-view's `toggle-xr` command maps directly onto this (see [[command-sch
 3. Requires a **WebXR-capable browser + headset** (or Android Chrome AR). Gate UI
    on `xr.isSupported`.
 
+### In-VR interaction & the voice boundary
+
+In immersive XR the 2D DOM chat box is gone, so the user talks to the agent by
+**voice**. Ownership split (src: raw/0006):
+
+- **The consuming app owns** voice capture, STT, the agent loop, and the in-XR UX —
+  voice is just another input modality for the chat (same boundary as "no chat UI").
+- **van-der-view owns** only: (1) commands apply while `isPresenting` (the XR smoke in
+  [[testing-strategy]]); (2) [[command-schema]]'s `get-scene-context` keeps the agent
+  oriented with no DOM; (3) **first-class XR state/events** so the app can switch UI
+  modality without the `viewer.plugin` escape hatch — `viewer.xr.isSupported`,
+  `viewer.xr.isPresenting`, `viewer.on('xr-change', cb)` (thin wrappers over
+  `canvas3d.xr`'s BehaviorSubjects).
+
+This is mostly **free**: the executor is **input-modality-agnostic** — a `Command`
+from voice is identical to one from text — so the app only needs to produce a Command
+and `dispatch` it.
+
+⚠️ **You cannot voice-*enter* VR.** `xr.request()` needs a real user gesture; a
+speech result does not count. So **enter = a click** affordance (`toggle-xr {on}`),
+voice drives in-headset, **exit** can be programmatic (`end()`) or GamepadB (src: raw/0006).
+
 ### Evidence note
 
 GitHub's web-UI code search returns 0 results for "webxr" — **misleading**. The
@@ -80,6 +102,9 @@ Mol* (src: raw/0001).
 - [[testing-strategy]] — the manual XR smoke checklist
 
 ## Open questions
-- How to ergonomically satisfy the user-gesture rule from an agent-issued command
-  (prompt-a-button pattern vs. capability-gated affordance).
+- ~~How to satisfy the user-gesture rule from an agent command~~ — **decided**: enter
+  = a click affordance (`toggle-xr {on}`); voice can't enter; in-VR, voice drives the
+  agent which dispatches Commands (src: raw/0006).
+- In-XR visual feedback HUD (3D toasts confirming a command) — deferred; the command's
+  visible effect is the feedback for now (src: raw/0006).
 - Lower-level XR (anchors, depth) is not exposed as high-level commands — out of scope for now?

@@ -3,7 +3,7 @@ title: Agent Command Schema (van-der-view contract)
 slug: command-schema
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md]
 updated: 2026-06-18
 links: [agent-command-flow, molviewspec, molstar-api, molstar-webxr, project-overview]
 ---
@@ -102,7 +102,9 @@ type ResolveStructure = (input: LoadInput) => Promise<{ data?:string; url?:strin
 
 1. **`toggle-xr` cannot self-trigger entry** (v1.1). WebXR `request()` needs a user
    gesture; `toggle-xr {on:true}` surfaces an affordance, the user click calls
-   `request()`. Exit (`end()`) can be agent-driven ([[molstar-webxr]]).
+   `request()`. Exit (`end()`) can be agent-driven. ⚠️ A **voice** command is not a
+   gesture either — in-VR, voice drives the agent which dispatches Commands, but entry
+   still needs a click (src: raw/0006, [[molstar-webxr]]).
 2. **Real-time = incremental.** Prefer imperative manager calls for highlight/
    focus/color so the scene mutates without a full reload.
 3. **Validation + structured errors.** Bad selections / unloaded structure return
