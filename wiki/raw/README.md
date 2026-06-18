@@ -21,3 +21,4 @@ distilled, mutable knowledge; `raw/` is the permanent record it rests on.
 | 0004 | [0004-testing-strategy-decisions-2026-06-18.md](0004-testing-strategy-decisions-2026-06-18.md) | dev session 2026-06-18 (testing strategy, no external doc) | 2026-06-18 |
 | 0005 | [0005-integration-recon-saas-2026-06-18.md](0005-integration-recon-saas-2026-06-18.md) | dev session 2026-06-18 (saas integration recon + deltas) | 2026-06-18 |
 | 0006 | [0006-xr-voice-boundary-2026-06-18.md](0006-xr-voice-boundary-2026-06-18.md) | dev session 2026-06-18 (XR in-VR voice boundary decision) | 2026-06-18 |
+| 0007 | [0007-node-structure-spike-2026-06-18.md](0007-node-structure-spike-2026-06-18.md) | dev session 2026-06-18 (Node-Structure spike + pnpm build-gate) | 2026-06-18 |
