@@ -149,3 +149,52 @@ describe('createExecutor — load-structure + input validation', () => {
     expect(errorOf(res).code).toBe('invalid_input');
   });
 });
+
+describe('createExecutor — hardening (review fixes)', () => {
+  it('maps malformed selection contents to invalid_selection, not internal_error', async () => {
+    const res = await createExecutor(fakeContext()).dispatch({
+      name: 'highlight',
+      input: { selection: { residues: 'notarray' } },
+    });
+    expect(errorOf(res).code).toBe('invalid_selection');
+  });
+
+  it('maps a non-string load id to invalid_input, not internal_error', async () => {
+    const res = await createExecutor(fakeContext()).dispatch({
+      name: 'load-structure',
+      input: { source: 'pdb', id: 1234 },
+    });
+    expect(errorOf(res).code).toBe('invalid_input');
+  });
+
+  it('omits focus options entirely when no durationMs is supplied', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'focus',
+      input: { selection: { chain: 'A' } },
+    });
+    expect(res.ok).toBe(true);
+    const [, opts] = (ctx.focus as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(opts).toBeUndefined();
+  });
+
+  it('does not alias live host scene state in get-scene-context', async () => {
+    const scene = { loaded: true, structures: [{ chains: ['A', 'B'] }] };
+    const ctx = fakeContext({ getSceneContext: () => scene });
+    const res = await createExecutor(ctx).dispatch({ name: 'get-scene-context', input: {} });
+    if (!res.ok) throw new Error('expected ok');
+    (res.data as typeof scene).structures[0].chains.push('MUTANT');
+    expect(scene.structures[0].chains).toEqual(['A', 'B']); // host state untouched
+  });
+
+  it('returns internal_error (no silent no-op load) when a resolver yields neither url nor data', async () => {
+    const ctx = fakeContext();
+    const resolveStructure = vi.fn(async () => ({ format: 'mmcif' as const }));
+    const res = await createExecutor(ctx, { resolveStructure }).dispatch({
+      name: 'load-structure',
+      input: { source: 'pdb', id: '1crn' },
+    });
+    expect(errorOf(res).code).toBe('internal_error');
+    expect(ctx.loadStructure).not.toHaveBeenCalled();
+  });
+});
