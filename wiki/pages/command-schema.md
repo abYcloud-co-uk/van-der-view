@@ -3,7 +3,7 @@ title: Agent Command Schema (van-der-view contract)
 slug: command-schema
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-command-expansion-2026-06-18.md]
 updated: 2026-06-18
 links: [agent-command-flow, molviewspec, molstar-api, molstar-webxr, project-overview]
 ---
@@ -63,10 +63,32 @@ malformed), `unsupported_selection` (a valid preset not implemented yet), `no_st
 | `focus` | **v1** | `{ selection: Selection, durationMs?, zoomOut? }` | `managers.camera.focusLoci(loci, …)` |
 | `get-scene-context` | **v1** | `{}` | **read tool** → `getSceneContext()` (the "up" channel) |
 | `reset-camera` | **v1** | `{}` | `managers.camera.reset()` |
-| `color` | v1.1 | `{ selection, color }` | `component.updateRepresentationsTheme` |
-| `set-representation` | v1.1 | `{ selection, type }` | `representation.addRepresentation` |
 | `load-scene` | v1.1 | `{ mvsj }` | `loadMVS(plugin, data)` ([[molviewspec]]) |
 | `toggle-xr` | v1.1 | `{ on?: boolean }` | `canvas3d.xr.request()/end()` — gesture affordance ([[molstar-webxr]]) |
+
+### Expansion commands (implemented 2026-06-18, src: raw/0009)
+
+These extend the union (existing entries unchanged) and reuse the same
+adapter/executor seam and the shared `Selection`. No new `error.code` values —
+they reuse `invalid_input` / `empty_selection` / `no_structure`.
+
+| command | params | executor → `ExecutorContext` | returns |
+|---|---|---|---|
+| `set-representation` | `{ selection, type }`, `type ∈` REPRESENTATION_TYPES (`cartoon`, `ball-and-stick`, `spacefill`, `molecular-surface`, `gaussian-surface`, `point`, `line`, `ellipsoid`) | `setRepresentation(loci, type)` → `representation.addRepresentation` | — |
+| `set-color` | `{ selection, scheme? \| color? }` — **exactly one**; `scheme ∈` COLOR_SCHEMES (`element`, `chain`, `residue-index`, `secondary-structure`, `b-factor`, `hydrophobicity`, `sequence-id`); `color` = 6-digit hex | `setColor(loci, {scheme}\|{hex})` → `component.updateRepresentationsTheme` | — |
+| `toggle-visibility` | `{ selection, visible: boolean }` | `setVisibility(loci, visible)` → component visibility | — |
+| `measure-distance` | `{ from: Selection, to: Selection }` | pure `distanceBetweenLoci` (centroid→centroid) — no port call | `data.distanceAngstrom` (Å) |
+| `add-label` | `{ selection, text: string }` | `addLabel(loci, text)` → label/measurement manager | — |
+
+- `set-color`'s scheme-XOR-color rule is enforced **in the executor**
+  (`requireColorSpec`), not the JSON Schema — the minimal `JSONSchema` type can't
+  express `oneOf`; `required` is `['selection']` and the rule lives in the description.
+- `measure-distance` is the first command that returns **data** to the agent
+  (`{ distanceAngstrom }`), computed in the pure-Node `measure.ts`
+  (`centroidOfLoci` / `distanceBetweenLoci`) — Node-testable like `resolveSelection`.
+- The 4 visual commands added matching methods to the `ExecutorContext` port
+  (`setRepresentation`/`setColor`/`setVisibility`/`addLabel`) + the `ColorSpec`
+  union; the real Mol\* mapping is a Plan-3 adapter handoff ([[molstar-api]]).
 
 `get-scene-context` is **in v1** and is a real read tool the agent can call, not
 just system-prompt metadata — so it doesn't guess selectors (src: raw/0003).
@@ -134,3 +156,11 @@ type ResolveStructure = (input: LoadInput) => Promise<{ data?:string; url?:strin
   matches that residue number in **all** chains — semantics TBD.
 - ✅ **Testing of the schema/executor** — adapter + executor + `resolveSelection` are
   Node unit-tested (src: raw/0008). See [[testing-strategy]].
+- **Component management** (src: raw/0009) — `set-representation`/`set-color`/
+  `toggle-visibility` are fire-and-forget per selection; add/remove/update of named Mol\*
+  *components* (selection+repr pairs) is not yet modeled as commands.
+- **Measurement scope** (src: raw/0009) — `measure-distance` is centroid-to-centroid only;
+  specific-atom / nearest-atom distance and angle/dihedral measurements are deferred.
+- **Label lifecycle** (src: raw/0009) — `add-label` returns no handle, so labels can't be
+  removed/updated individually yet (a label registry is deferred). `set-color` accepts hex
+  only (no named colors) to keep validation total.

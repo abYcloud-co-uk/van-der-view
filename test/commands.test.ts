@@ -1,16 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import { VDV_COMMANDS } from '../src/commands';
-import { LOAD_SOURCES, NUMBERINGS, SELECTION_PRESETS } from '../src/types';
+import {
+  COLOR_SCHEMES,
+  LOAD_SOURCES,
+  NUMBERINGS,
+  REPRESENTATION_TYPES,
+  SELECTION_PRESETS,
+} from '../src/types';
 
 describe('VDV_COMMANDS', () => {
-  it('contains exactly the v1 commands', () => {
+  it('contains the v1 commands plus the expansion commands', () => {
     const names = VDV_COMMANDS.map((c) => c.name).sort();
     expect(names).toEqual([
+      'add-label',
       'focus',
       'get-scene-context',
       'highlight',
       'load-structure',
+      'measure-distance',
       'reset-camera',
+      'set-color',
+      'set-representation',
+      'toggle-visibility',
     ]);
   });
 
@@ -62,5 +73,28 @@ describe('VDV_COMMANDS', () => {
   it('exposes the v1 style param on highlight', () => {
     const highlight = VDV_COMMANDS.find((c) => c.name === 'highlight');
     expect(highlight?.inputSchema.properties).toHaveProperty('style');
+  });
+
+  it('derives set-representation / set-color enums from the shared const arrays', () => {
+    const rep = VDV_COMMANDS.find((c) => c.name === 'set-representation');
+    expect((rep?.inputSchema.properties.type as { enum: string[] }).enum).toEqual([
+      ...REPRESENTATION_TYPES,
+    ]);
+    expect(rep?.inputSchema.required).toEqual(['selection', 'type']);
+
+    const color = VDV_COMMANDS.find((c) => c.name === 'set-color');
+    expect((color?.inputSchema.properties.scheme as { enum: string[] }).enum).toEqual([
+      ...COLOR_SCHEMES,
+    ]);
+    // color is intentionally NOT required on the schema (scheme XOR color is enforced by the executor).
+    expect(color?.inputSchema.required).toEqual(['selection']);
+  });
+
+  it('requires both endpoints on measure-distance and a boolean target on toggle-visibility', () => {
+    const measure = VDV_COMMANDS.find((c) => c.name === 'measure-distance');
+    expect(measure?.inputSchema.required).toEqual(['from', 'to']);
+    const toggle = VDV_COMMANDS.find((c) => c.name === 'toggle-visibility');
+    expect(toggle?.inputSchema.required).toContain('visible');
+    expect((toggle?.inputSchema.properties.visible as { type: string }).type).toBe('boolean');
   });
 });
