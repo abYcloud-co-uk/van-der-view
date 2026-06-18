@@ -59,10 +59,10 @@ live changes in a complex Web 3D molecular view.
 - [[command-schema]] — the JSON contract the agent speaks
 - [[agent-command-flow]] — adapter + executor, end-to-end loop
 - [[molstar-api]] · [[molviewspec]] · [[molstar-webxr]] · [[headless-react]]
-- [[testing-strategy]] — deferred, its own brainstorm
+- [[testing-strategy]] — automated Node tests + a manual demo
 
 ## Open questions
-- **Testing strategy** — deferred to [[testing-strategy]] (the next design pass).
+- **Testing strategy** — designed; see [[testing-strategy]] (remaining: confirm Node-side `Structure` build).
 - Packaging details: peer-dep on `molstar` vs bundle; one component vs hooks-only.
 - Pin which Mol\* `5.x` to target.
 - Server-side vs client-side MVS construction (for the v1.1 `load-scene`).

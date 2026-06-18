@@ -5,7 +5,7 @@ type: entity
 status: stable
 sources: [raw/0001-molstar-research.md, "https://molstar.org/xr/"]
 updated: 2026-06-18
-links: [molstar-api, command-schema, project-overview]
+links: [molstar-api, command-schema, project-overview, testing-strategy]
 ---
 
 # Mol* WebXR support
@@ -77,6 +77,7 @@ Mol* (src: raw/0001).
 - [[molstar-api]] — the broader imperative API XR lives alongside
 - [[command-schema]] — how `toggle-xr` respects the user-gesture constraint
 - [[project-overview]] — why native XR de-risks the project
+- [[testing-strategy]] — the manual XR smoke checklist
 
 ## Open questions
 - How to ergonomically satisfy the user-gesture rule from an agent-issued command
