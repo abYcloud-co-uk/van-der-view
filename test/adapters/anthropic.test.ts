@@ -58,4 +58,12 @@ describe('toCommand', () => {
       toCommand({ type: 'tool_use', id: 'x', name: 'focus', input: [] }),
     ).toThrow(AdapterError);
   });
+
+  it('throws AdapterError when input is null', () => {
+    expect(() => toCommand({ type: 'tool_use', id: 'x', name: 'focus', input: null })).toThrow(AdapterError);
+  });
+
+  it('throws AdapterError when name is an empty string', () => {
+    expect(() => toCommand({ type: 'tool_use', id: 'x', name: '', input: {} })).toThrow(AdapterError);
+  });
 });
