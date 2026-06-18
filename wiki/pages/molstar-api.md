@@ -3,7 +3,7 @@ title: Mol* Programmatic API (headless)
 slug: molstar-api
 type: entity
 status: stable
-sources: [raw/0001-molstar-research.md, "https://molstar.org/docs/plugin/instance/"]
+sources: [raw/0001-molstar-research.md, raw/0007-node-structure-spike-2026-06-18.md, "https://molstar.org/docs/plugin/instance/"]
 updated: 2026-06-18
 links: [molviewspec, molstar-webxr, command-schema, agent-command-flow, headless-react, glossary]
 ---
@@ -67,6 +67,31 @@ const loci = StructureSelection.toLociWithSourceUnits(sel); // → StructureElem
 ⚠️ `inRange` lives under `core.rel`; `auth_seq_id` (PDB numbering) ≠
 `label_seq_id` (entity numbering) — choose deliberately (src: raw/0001). See
 [[glossary]] for *loci*.
+
+### Pure-Node parse + select (no plugin, no WebGL) — verified
+
+For tests, you can build a `Structure` and resolve a selection to loci **without any
+plugin/canvas/WebGL** (`three`/`gl` not required) — verified against molstar 5.10.1
+(src: raw/0007):
+
+```ts
+import { Task } from 'molstar/lib/mol-task';
+import { parsePDB } from 'molstar/lib/mol-io/reader/pdb/parser';
+import { trajectoryFromPDB } from 'molstar/lib/mol-model-formats/structure/pdb';
+import { Structure, StructureSelection, StructureElement } from 'molstar/lib/mol-model/structure';
+import { Script } from 'molstar/lib/mol-script/script';
+
+const parsed = await parsePDB(pdb, 'id').run();
+const traj = await trajectoryFromPDB(parsed.result).run();
+const frame = traj.getFrameAtIndex(0);
+const model = Task.is(frame) ? await frame.run() : frame;
+const structure = Structure.ofModel(model);          // sync, no RuntimeContext
+const sel = Script.getStructureSelection(/* builder */ , structure);
+const loci = StructureSelection.toLociWithSourceUnits(sel);
+```
+mmCIF variant via `CIF.parse(cif).run()` → `result.blocks[0]` → `trajectoryFromMmCIF`.
+`Structure.ofModel` is synchronous; avoid `Structure.ofTrajectory` (needs a
+RuntimeContext). This is the basis of van-der-view's F2 selection tests ([[testing-strategy]]).
 
 ### Highlight vs. select (distinct managers)
 

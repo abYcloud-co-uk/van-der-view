@@ -1,0 +1,9 @@
+# pnpm 11 reads project settings from this file (even for a single-package repo).
+#
+# molstar transitively pulls @scarf/scarf — a download-telemetry package whose
+# postinstall we intentionally do NOT run. Recording the decision (false) plus
+# strictDepBuilds:false keeps that unapproved build script from hard-failing
+# `pnpm install` / `pnpm test`; CI still installs cleanly from the lockfile.
+allowBuilds:
+  '@scarf/scarf': false
+strictDepBuilds: false

@@ -3,7 +3,7 @@ title: Testing Strategy
 slug: testing-strategy
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0004-testing-strategy-decisions-2026-06-18.md, "docs/superpowers/specs/2026-06-18-testing-strategy-design.md"]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0004-testing-strategy-decisions-2026-06-18.md, raw/0007-node-structure-spike-2026-06-18.md, "docs/superpowers/specs/2026-06-18-testing-strategy-design.md"]
 updated: 2026-06-18
 links: [agent-command-flow, command-schema, molstar-api, headless-react, molstar-webxr]
 ---
@@ -30,7 +30,7 @@ links: [agent-command-flow, command-schema, molstar-api, headless-react, molstar
 | Target | Test | Note |
 |---|---|---|
 | **Adapters** (`toTools`/`toCommand`) | fixtures of Anthropic `tool_use` → assert exact `Command`; malformed → clean error | F1; see [[agent-command-flow]] |
-| **Selection → loci** | load bundled **1CRN** into a headless data model; assert loci for chain, residue-range, and **auth vs label** | F2; ⚠️ assumes Node-buildable `Structure` (Open questions) |
+| **Selection → loci** | load a structure into a headless data model; assert loci for chain, residue-range, and **auth vs label** | F2; ✅ Node-buildable **confirmed** (src: raw/0007) |
 | **SSR-safety** | `renderToString(<MolViewCanvas/>)` in jsdom → no throw, placeholder out, no molstar in output | one test only; see [[headless-react]] |
 
 ⚠️ **`'use client'` is not the SSR guard.** Under Next App Router a `'use client'`
@@ -77,8 +77,9 @@ bindings — [[molstar-webxr]]); immersive-headset stepping; numeric coverage ga
 - [[molstar-webxr]] — the XR manual checklist
 
 ## Open questions
-- ⚠️ **Node-buildable `Structure`** — confirm `Script.getStructureSelection` +
-  `toLociWithSourceUnits` run in Node with no WebGL (the premise of the selection
-  tests). If false, they relocate to a `headless-gl` job or the demo.
+- ✅ **Node-buildable `Structure` — confirmed** (src: raw/0007): `Structure.ofModel`
+  + `Script.getStructureSelection` + `toLociWithSourceUnits` run in pure Node, no
+  WebGL/three. F2 selection tests are Node unit tests. ⚠️ pnpm build-gate: molstar
+  pulls `@scarf/scarf` — handled in `pnpm-workspace.yaml` (see raw/0007).
 - **1HSG ligand resname** (`MK1`?) and the **1CRN Node parse entry** (`mol-io`/`mol-model`).
 - Whether to later add a `headless-gl` integration job for real Node-side rendering.
