@@ -49,3 +49,58 @@ describe('createExecutor — routing', () => {
     expect(res).toEqual({ ok: false, error: { code: 'unknown_command', message: expect.any(String) } });
   });
 });
+
+describe('createExecutor — highlight/focus', () => {
+  it('highlights a resolved selection via the port', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'highlight',
+      input: { selection: { chain: 'A' } },
+    });
+    expect(res.ok).toBe(true);
+    expect(ctx.highlight).toHaveBeenCalledOnce();
+    const loci = (ctx.highlight as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(StructureElement.Loci.size(loci)).toBe(8); // chain A
+  });
+
+  it('focuses a resolved selection, passing durationMs through', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'focus',
+      input: { selection: { chain: 'A', residues: [[1, 2]], numbering: 'auth' }, durationMs: 250 },
+    });
+    expect(res.ok).toBe(true);
+    expect(ctx.focus).toHaveBeenCalledOnce();
+    const [loci, opts] = (ctx.focus as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(StructureElement.Loci.size(loci)).toBe(6);
+    expect(opts).toEqual({ durationMs: 250 });
+  });
+
+  it('returns empty_selection when nothing matches', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'highlight',
+      input: { selection: { chain: 'Z' } },
+    });
+    expect(res).toEqual({ ok: false, error: { code: 'empty_selection', message: expect.any(String) } });
+    expect(ctx.highlight).not.toHaveBeenCalled();
+  });
+
+  it('returns no_structure when none is loaded', async () => {
+    const ctx = fakeContext({ getStructure: () => undefined });
+    const res = await createExecutor(ctx).dispatch({
+      name: 'highlight',
+      input: { selection: { chain: 'A' } },
+    });
+    expect(errorOf(res).code).toBe('no_structure');
+  });
+
+  it('surfaces unsupported_selection from preset selectors', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'highlight',
+      input: { selection: { preset: 'ligand' } },
+    });
+    expect(errorOf(res).code).toBe('unsupported_selection');
+  });
+});
