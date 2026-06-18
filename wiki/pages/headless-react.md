@@ -5,7 +5,7 @@ type: how-to
 status: stable
 sources: [raw/0001-molstar-research.md, "https://github.com/molstar/molstar/issues/648"]
 updated: 2026-06-18
-links: [molstar-api, project-overview]
+links: [molstar-api, agent-command-flow, project-overview]
 ---
 
 # Headless Mol* in React (Next.js / Vite / Remix / TanStack)
@@ -82,6 +82,7 @@ See [[molstar-api]] for the post-init control calls. Dynamic `import()` inside
 
 ## See also
 - [[molstar-api]] — what to call after `initViewerAsync`
+- [[agent-command-flow]] — how `useMolView()` hands the plugin to the executor
 - [[project-overview]] — the framework-agnostic constraint this satisfies
 
 ## Open questions
