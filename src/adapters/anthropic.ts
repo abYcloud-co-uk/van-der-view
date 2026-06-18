@@ -1,4 +1,5 @@
 import type { AnthropicTool, AnthropicToolUse, Command, CommandSpec } from '../types';
+import { isPlainObject } from '../util';
 
 /** Thrown when a provider tool-call block is structurally malformed. */
 export class AdapterError extends Error {
@@ -37,11 +38,7 @@ export function toCommand(toolCall: unknown): Command {
   if (typeof block.name !== 'string' || block.name.length === 0) {
     throw new AdapterError('tool_use block is missing a string "name".');
   }
-  if (
-    typeof block.input !== 'object' ||
-    block.input === null ||
-    Array.isArray(block.input)
-  ) {
+  if (!isPlainObject(block.input)) {
     throw new AdapterError(`tool_use block "${block.name}" has a non-object "input".`);
   }
   // Defensive copy: the executor owns the returned input, so mutating it must not

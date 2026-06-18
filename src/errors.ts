@@ -1,6 +1,21 @@
+/**
+ * The closed set of stable error codes the executor emits in a CommandResult.
+ * Typing `ExecutorError.code` against this catches typos and divergent codes at
+ * compile time (the public `CommandResult.error.code` stays a plain string so
+ * consumers aren't forced to switch exhaustively on a set that may grow).
+ */
+export type ErrorCode =
+  | 'invalid_input'
+  | 'invalid_selection'
+  | 'unsupported_selection'
+  | 'no_structure'
+  | 'empty_selection'
+  | 'unknown_command'
+  | 'internal_error';
+
 /** An executor-level failure carrying a stable `code` for the CommandResult error. */
 export class ExecutorError extends Error {
-  constructor(public readonly code: string, message: string) {
+  constructor(public readonly code: ErrorCode, message: string) {
     super(message);
     this.name = new.target.name;
   }
