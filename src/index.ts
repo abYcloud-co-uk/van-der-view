@@ -1,15 +1,15 @@
-import { toTools } from './adapters/anthropic';
+import { adapters } from './adapters/index';
 import { VDV_COMMANDS } from './commands';
+import { deepFreeze } from './util';
 
 export * from './types';
-export { VDV_COMMANDS } from './commands';
-export { adapters } from './adapters/index';
 export { AdapterError } from './adapters/anthropic';
+export { adapters };
 
 /** The canonical command catalog. */
 export const commands = VDV_COMMANDS;
 
-/** Ready-made provider tool definitions. */
+/** Ready-made provider tool definitions, built from the adapter registry. */
 export const tools = {
-  anthropic: toTools(VDV_COMMANDS),
+  anthropic: deepFreeze(adapters.anthropic.toTools(VDV_COMMANDS)),
 };

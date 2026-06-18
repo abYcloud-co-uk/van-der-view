@@ -1,7 +1,7 @@
-import type { ProviderAdapter } from '../types';
+import type { AnthropicTool, ProviderAdapter } from '../types';
 import { toCommand, toTools } from './anthropic';
 
-const anthropic: ProviderAdapter = { toTools, toCommand };
+const anthropic: ProviderAdapter<AnthropicTool> = { toTools, toCommand };
 
 /** A reserved adapter that throws clearly until the provider is implemented. */
 function notImplemented(provider: string): ProviderAdapter {

@@ -23,11 +23,14 @@ export const err = (code: string, message: string): CommandResult => ({
 // ── Selection (LLM-friendly; modeled on MVS ComponentExpression) ────────────
 
 /** Which residue numbering a Selection uses. auth = PDB author, label = entity. */
-export type Numbering = 'auth' | 'label';
+export const NUMBERINGS = ['auth', 'label'] as const;
+export type Numbering = (typeof NUMBERINGS)[number];
 
 /** A named group of atoms, used instead of chain/residues. */
-export type SelectionPreset =
-  | 'all' | 'polymer' | 'protein' | 'nucleic' | 'ligand' | 'ion' | 'water';
+export const SELECTION_PRESETS = [
+  'all', 'polymer', 'protein', 'nucleic', 'ligand', 'ion', 'water',
+] as const;
+export type SelectionPreset = (typeof SELECTION_PRESETS)[number];
 
 /** A single residue number, or an inclusive [start, end] range. */
 export type ResidueRef = number | [number, number];
@@ -43,6 +46,16 @@ export interface Selection {
   numbering?: Numbering;
   preset?: SelectionPreset;
 }
+
+// ── Structure loading (load-structure) ─────────────────────────────────────
+
+/** Where load-structure pulls a structure from. */
+export const LOAD_SOURCES = ['pdb', 'url', 'inline'] as const;
+export type LoadSource = (typeof LOAD_SOURCES)[number];
+
+/** Structure file formats van-der-view parses. */
+export const STRUCTURE_FORMATS = ['mmcif', 'pdb'] as const;
+export type StructureFormat = (typeof STRUCTURE_FORMATS)[number];
 
 // ── Command specs + JSON Schema ─────────────────────────────────────────────
 
@@ -62,8 +75,8 @@ export interface CommandSpec {
 }
 
 /** A per-provider-family shim between the LLM wire format and our Command. */
-export interface ProviderAdapter {
-  toTools(commands: CommandSpec[]): unknown;
+export interface ProviderAdapter<TTool = unknown> {
+  toTools(commands: readonly CommandSpec[]): TTool[];
   toCommand(toolCall: unknown): Command;
 }
 

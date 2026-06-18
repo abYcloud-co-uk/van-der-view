@@ -9,7 +9,14 @@ export class AdapterError extends Error {
 }
 
 /** OUTBOUND: canonical command specs → Anthropic tool definitions. */
-export function toTools(commands: CommandSpec[]): AnthropicTool[] {
+export function toTools(commands: readonly CommandSpec[]): AnthropicTool[] {
+  const seen = new Set<string>();
+  for (const c of commands) {
+    if (seen.has(c.name)) {
+      throw new AdapterError(`Duplicate command name "${c.name}" in toTools().`);
+    }
+    seen.add(c.name);
+  }
   return commands.map((c) => ({
     name: c.name,
     description: c.description,
@@ -37,5 +44,7 @@ export function toCommand(toolCall: unknown): Command {
   ) {
     throw new AdapterError(`tool_use block "${block.name}" has a non-object "input".`);
   }
-  return { name: block.name, input: block.input };
+  // Defensive copy: the executor owns the returned input, so mutating it must not
+  // corrupt the caller's original tool_use block (replayed in conversation history).
+  return { name: block.name, input: structuredClone(block.input) };
 }

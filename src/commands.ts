@@ -1,48 +1,72 @@
 import type { CommandSpec } from './types';
+import { LOAD_SOURCES, NUMBERINGS, SELECTION_PRESETS, STRUCTURE_FORMATS } from './types';
+import { deepFreeze } from './util';
 
 /** JSON Schema fragment for a Selection (shared by highlight/focus). */
 const selectionSchema = {
   type: 'object',
   description: 'A residue/chain/ligand selector. Give chain/residues + numbering, OR a preset.',
+  minProperties: 1,
   properties: {
     chain: { type: 'string', description: 'Chain id, e.g. "A".' },
     residues: {
       type: 'array',
-      description: 'Residue numbers; each item is a number or a [start, end] range.',
+      minItems: 1,
+      description: 'Residue numbers; each item is an integer or an [start, end] integer range.',
       items: {
         oneOf: [
-          { type: 'number' },
-          { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 },
+          { type: 'integer' },
+          { type: 'array', items: { type: 'integer' }, minItems: 2, maxItems: 2 },
         ],
       },
     },
     numbering: {
       type: 'string',
-      enum: ['auth', 'label'],
+      enum: [...NUMBERINGS],
       description: 'auth = PDB author numbering (what users cite); label = entity numbering.',
     },
     preset: {
       type: 'string',
-      enum: ['all', 'polymer', 'protein', 'nucleic', 'ligand', 'ion', 'water'],
+      enum: [...SELECTION_PRESETS],
       description: 'A named group, used instead of chain/residues.',
     },
   },
   additionalProperties: false,
 };
 
-/** The canonical v1 command catalog (provider-neutral). */
-export const VDV_COMMANDS: CommandSpec[] = [
+/** JSON Schema fragment for an optional appearance override on highlight. */
+const styleSchema = {
+  type: 'object',
+  description: 'Optional appearance override.',
+  properties: {
+    repr: { type: 'string', description: 'Representation, e.g. cartoon, ball-and-stick.' },
+    color: { type: 'string', description: 'Color, e.g. a hex string ("#ff0000") or a named color.' },
+    opacity: { type: 'number', minimum: 0, maximum: 1, description: 'Opacity, 0–1.' },
+  },
+  additionalProperties: false,
+};
+
+/**
+ * The canonical v1 command catalog (provider-neutral). Deep-frozen: it is an
+ * exported singleton and must not be mutated by consumers.
+ */
+export const VDV_COMMANDS: readonly CommandSpec[] = deepFreeze<CommandSpec[]>([
   {
     name: 'load-structure',
-    description: 'Load a molecular structure into the viewer by PDB id or URL.',
+    description: 'Load a molecular structure into the viewer by PDB id, URL, or inline text.',
     inputSchema: {
       type: 'object',
       properties: {
-        source: { type: 'string', enum: ['pdb', 'url', 'inline'], description: 'Where to load from.' },
+        source: { type: 'string', enum: [...LOAD_SOURCES], description: 'Where to load from.' },
         id: { type: 'string', description: 'PDB id, when source is "pdb" (e.g. "1CRN").' },
         url: { type: 'string', description: 'Structure URL, when source is "url".' },
         data: { type: 'string', description: 'Raw structure text, when source is "inline".' },
-        format: { type: 'string', enum: ['mmcif', 'pdb'], description: 'File format (default mmcif).' },
+        format: {
+          type: 'string',
+          enum: [...STRUCTURE_FORMATS],
+          default: 'mmcif',
+          description: 'File format (default mmcif).',
+        },
       },
       required: ['source'],
       additionalProperties: false,
@@ -53,7 +77,7 @@ export const VDV_COMMANDS: CommandSpec[] = [
     description: 'Transiently highlight a selection of residues, a chain, or a ligand.',
     inputSchema: {
       type: 'object',
-      properties: { selection: selectionSchema },
+      properties: { selection: selectionSchema, style: styleSchema },
       required: ['selection'],
       additionalProperties: false,
     },
@@ -83,4 +107,4 @@ export const VDV_COMMANDS: CommandSpec[] = [
     description: 'Reset the camera to the default view.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   },
-];
+]);

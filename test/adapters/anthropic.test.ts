@@ -18,6 +18,19 @@ describe('toTools', () => {
     });
     expect(highlight).not.toHaveProperty('inputSchema');
   });
+
+  it('carries the full input_schema (properties + required) unchanged', () => {
+    const tools = toTools(VDV_COMMANDS);
+    for (const spec of VDV_COMMANDS) {
+      const tool = tools.find((t) => t.name === spec.name);
+      expect(tool?.input_schema).toEqual(spec.inputSchema);
+    }
+  });
+
+  it('throws AdapterError on duplicate command names', () => {
+    const dup = VDV_COMMANDS[0];
+    expect(() => toTools([dup, dup])).toThrow(AdapterError);
+  });
 });
 
 describe('toCommand', () => {
@@ -65,5 +78,17 @@ describe('toCommand', () => {
 
   it('throws AdapterError when name is an empty string', () => {
     expect(() => toCommand({ type: 'tool_use', id: 'x', name: '', input: {} })).toThrow(AdapterError);
+  });
+
+  it('returns a defensive copy of input (no aliasing of the source block)', () => {
+    const block = {
+      type: 'tool_use',
+      id: 'x',
+      name: 'highlight',
+      input: { selection: { chain: 'A' } },
+    };
+    const cmd = toCommand(block);
+    (cmd.input as { selection: { chain: string } }).selection.chain = 'B';
+    expect(block.input.selection.chain).toBe('A');
   });
 });
