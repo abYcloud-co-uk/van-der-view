@@ -5,7 +5,7 @@ type: entity
 status: stable
 sources: [raw/0001-molstar-research.md, "https://molstar.org/docs/plugin/instance/"]
 updated: 2026-06-18
-links: [molviewspec, molstar-webxr, command-schema, headless-react, glossary]
+links: [molviewspec, molstar-webxr, command-schema, agent-command-flow, headless-react, glossary]
 ---
 
 # Mol* Programmatic API (headless)
@@ -119,6 +119,7 @@ tracks the UI "focused" entry but does **not** move the camera (src: raw/0001).
 - [[molviewspec]] — the declarative layer that compiles down to these APIs
 - [[molstar-webxr]] — `plugin.canvas3d.xr` for XR
 - [[command-schema]] — which van-der-view commands map to which call here
+- [[agent-command-flow]] — the executor that invokes these calls
 - [[headless-react]] — mounting this in React without SSR breakage
 
 ## Open questions

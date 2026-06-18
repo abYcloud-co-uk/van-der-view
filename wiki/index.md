@@ -3,23 +3,25 @@
 The entry point to this LLM-maintained knowledge base. Read this first to find
 the right page. Schema and the three operations are defined in [CLAUDE.md](CLAUDE.md).
 
-> **Project in one line:** a headless React library that bridges an AI agent and
-> the Mol\* 3D molecular renderer via a lightweight standardized JSON command
-> schema. See [[project-overview]].
+> **Project in one line:** an open-source, headless React developer library that
+> bridges an AI agent and the Mol\* 3D molecular renderer via a lightweight
+> standardized JSON command schema. See [[project-overview]].
 
-_Last updated: 2026-06-18 · 7 pages · 2 sources_
+_Last updated: 2026-06-18 · 9 pages · 3 sources_
 
 ## Clusters
 
 ### Project
 | Page | Hook |
 |---|---|
-| [[project-overview]] | The goal, the 5 hard constraints, and current tech decisions. `decision` |
+| [[project-overview]] | Goal, audience/boundary, 5 constraints, locked tech decisions. `decision` `stable` |
+| [[testing-strategy]] | Testing approach — **stub**, deferred to its own brainstorm. `decision` `stub` |
 
 ### Schema / Protocol
 | Page | Hook |
 |---|---|
-| [[command-schema]] | **Draft** of the agent↔renderer JSON contract — intent commands over a hybrid layer. `decision` |
+| [[command-schema]] | The agent↔renderer JSON contract — v1 command catalog, `Selection` type. `decision` `stable` |
+| [[agent-command-flow]] | End-to-end tool-calling loop; provider adapter + provider-agnostic executor. `how-to` |
 | [[molviewspec]] | The MVS declarative scene standard (`kind/params/children` tree). `entity` |
 
 ### Rendering Engine (Mol\*)
@@ -43,14 +45,15 @@ _Last updated: 2026-06-18 · 7 pages · 2 sources_
 |---|---|
 | 0001 | Mol\* integration research (headless, managers, WebXR, React/SSR) |
 | 0002 | MolViewSpec research (node tree, selectors, tooling, limits) |
+| 0003 | Design decisions — 2026-06-18 brainstorming (boundary, architecture, API, v1 catalog) |
 
 ## Open questions (rollup)
-- **v1 command set** — which intents ship first? ([[command-schema]])
-- **Numbering** — lock `auth` vs `label` handling in selections ([[molstar-api]], [[command-schema]])
-- **XR gesture** — ergonomic pattern for agent-issued `toggle-xr` ([[molstar-webxr]])
+- **Testing strategy** — the headline open thread; its own brainstorm next ([[testing-strategy]])
+- **Packaging** — peer-dep on `molstar` vs bundle; one component vs hooks-only ([[project-overview]], [[headless-react]])
 - **Mol\* version** — pin a `5.x` and verify signatures against `.d.ts` ([[molstar-api]])
-- **Packaging** — peer-dep on `molstar` vs bundle; one component vs hooks ([[headless-react]])
-- **MVS construction** — server-side Python vs client-side JS builder ([[project-overview]])
+- **Command envelope** — batching/transactions, ack/streaming, error-code taxonomy ([[command-schema]])
+- **`dispatch` input** — `Command` only vs convenience overload for the raw provider block ([[agent-command-flow]])
+- **MVS construction** — server-side Python vs client-side JS builder, for v1.1 `load-scene` ([[project-overview]])
 
 ## How to grow this wiki
 - `/wiki-ingest <url|file|text>` — add a source, synthesize pages
