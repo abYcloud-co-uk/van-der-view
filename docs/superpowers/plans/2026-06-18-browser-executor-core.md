@@ -783,5 +783,7 @@ git commit -m "test: load-structure handler + malformed-input -> CommandResult e
 
 - The real `PluginContext` → `ExecutorContext` adapter: `getStructure` from `plugin.managers.structure.hierarchy.current`, `highlight` via `interactivity.lociHighlights.highlightOnly({ loci })`, `focus` via `managers.camera.focusLoci(loci, opts)`, `loadStructure` via `builders.data.download`/`rawData` + `parseTrajectory` + `applyPreset`, `resetCamera` via `managers.camera.reset()`, `getSceneContext` from the hierarchy. **Verify each signature against `node_modules/molstar/lib/**/*.d.ts`** and confirm visually in the demo.
 - Preset selectors (`unsupported_selection` today) → real MolScript molecular-type queries.
+- `ExecutorContext.clearHighlight()` is declared on the port but **unwired** in Plan 2 (no v1 command, no caller). Wire it to `interactivity.lociHighlights.clearHighlights()` in the adapter, and decide whether to surface a `clear-highlight` command.
+- The v1 command schema advertises `highlight.style` and `focus.zoomOut` (`src/commands.ts`), but the Plan-2 executor **drops** them (highlight uses only `selection`; focus forwards only `durationMs`). Implement them when the real representation/camera calls land — `style` via `builders.structure.representation`/`updateRepresentationsTheme`, `zoomOut` via the `focusLoci` options.
 - Public entry point for the executor (subpath export vs main barrel) — packaging decision.
 ```
