@@ -8,6 +8,7 @@ import {
   buildStructureFromPDB,
 } from './fixtures/structures';
 import { resolveSelection } from '../src/selection';
+import { SelectionError } from '../src/errors';
 
 let pdb: Structure;
 let cif: Structure;
@@ -47,5 +48,20 @@ describe('resolveSelection — chain + residues', () => {
 
   it('defaults numbering to auth when omitted', () => {
     expect(size(resolveSelection({ residues: [[100, 101]] }, cif))).toBe(4);
+  });
+});
+
+describe('resolveSelection — guards', () => {
+  it('throws SelectionError for preset selectors (not yet supported)', () => {
+    expect(() => resolveSelection({ preset: 'ligand' }, pdb)).toThrow(SelectionError);
+  });
+
+  it('throws SelectionError for an empty selection (no chain, no residues)', () => {
+    expect(() => resolveSelection({}, pdb)).toThrow(SelectionError);
+  });
+
+  it('returns an empty loci for a chain that does not exist (caller decides)', () => {
+    const loci = resolveSelection({ chain: 'Z' }, pdb);
+    expect(StructureElement.Loci.isEmpty(loci)).toBe(true);
   });
 });
