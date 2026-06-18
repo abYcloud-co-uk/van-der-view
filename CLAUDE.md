@@ -24,11 +24,21 @@ under `wiki/`). Do not duplicate them here.
 
 ## Status
 
-Early implementation. The **agent-side core** has landed (`src/`): the command
-schema types, the v1 command catalog (`commands`), and the Anthropic adapter
-(`tools.anthropic`, `adapters`). Pure TypeScript — no molstar/React yet (the
-browser-side executor, the React mount, and the demo are later plans; see
-`docs/superpowers/plans/`).
+Early implementation — the **agent-side and browser-side cores have both landed**
+(`src/`, all pure-Node unit-tested):
+
+- **Agent-side** (Plan 1, merged): the command schema types, the v1 command catalog
+  (`commands`), and the Anthropic adapter (`tools.anthropic`, `adapters`). Exposed via
+  the molstar-free public barrel `src/index.ts`.
+- **Browser-side executor** (Plan 2, merged): `selection` (Selection → Mol\* loci,
+  auth/label), `resolve-structure` (data sourcing), the `ExecutorContext` port
+  (`context`), and `createExecutor().dispatch()` (`executor`). Depends on `molstar`;
+  intentionally **not** in the agent-side barrel.
+
+Still later plans (`docs/superpowers/plans/`): the **React mount** + the real
+`PluginContext` → `ExecutorContext` adapter + an SSR smoke + the Vite demo + XR
+(Plan 3), then packaging. Plan 2's deferred items are in that plan's "Handoffs to
+Plan 3" section.
 
 Commands:
 - `pnpm test` — run the Vitest suite (`pnpm test:watch` to watch)
