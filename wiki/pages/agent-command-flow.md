@@ -3,7 +3,7 @@ title: Agent Command Flow (adapter + executor)
 slug: agent-command-flow
 type: how-to
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0005-integration-recon-saas-2026-06-18.md]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md]
 updated: 2026-06-18
 links: [command-schema, molstar-api, headless-react, project-overview]
 ---
@@ -23,6 +23,9 @@ links: [command-schema, molstar-api, headless-react, project-overview]
 - **Adapters are per-provider-FAMILY, not per-model** and are thin (src: raw/0003).
 - The library does **not** own the LLM call — the developer's app does. The seam
   is the developer handing each tool_call to our executor (src: raw/0003).
+- **Both halves are implemented and Node-tested** (Plan 1 = agent-side schema +
+  Anthropic adapter; Plan 2 = the executor, `createExecutor(ctx).dispatch(Command)`
+  over an `ExecutorContext` port). Merged to `main` (src: raw/0008).
 
 ## The data flow
 
@@ -63,23 +66,38 @@ interface ProviderAdapter {
 (`notImplemented('openai')` that throws clearly). Filling it in touches neither the
 executor nor the command specs (src: raw/0003).
 
-## The executor
+## The executor (implemented — Plan 2, src: raw/0008)
 
-A table of `command name → handler → concrete Mol\* call` (all real APIs in
-[[molstar-api]]):
+`createExecutor(ctx, options).dispatch(command): Promise<CommandResult>` switches on
+`command.name`, resolves selections/structures, and drives Mol\* through a high-level
+**`ExecutorContext` port** — it never touches raw Mol\* managers directly:
 
 ```ts
-const handlers = {
-  'load-structure': (input, ctx) => /* builders.data.download + parseTrajectory + preset */,
-  highlight:        (input, ctx) => ctx.plugin.managers.interactivity.lociHighlights.highlightOnly({ loci: resolveSelection(input.selection, ctx) }),
-  focus:            (input, ctx) => ctx.plugin.managers.camera.focusLoci(resolveSelection(input.selection, ctx), { durationMs: input.durationMs }),
-  'get-scene-context': (_input, ctx) => ({ ok: true, data: ctx.getSceneContext() }),
-  'reset-camera':   (_input, ctx) => ctx.plugin.managers.camera.reset(),
-};
+interface ExecutorContext {          // a real Mol* adapter (Plan 3) or a test fake implements this
+  getStructure(): Structure | undefined;
+  loadStructure(resolved): Promise<void>;
+  highlight(loci): void;  clearHighlight(): void;
+  focus(loci, options?): void;  resetCamera(): void;
+  getSceneContext(): SceneContext;
+}
+const { dispatch } = createExecutor(ctx, { resolveStructure });   // resolveStructure is host-overridable
 ```
-`resolveSelection` turns our `Selection` ([[command-schema]]) into a MolScript loci.
-Handlers return a `CommandResult`; failures (bad selection, unloaded structure)
-return `{ ok:false, error }` so the agent self-corrects.
+
+- `resolveSelection(input.selection, structure)` turns our `Selection` ([[command-schema]])
+  into a MolScript loci (chain/residue, auth-vs-label); an empty loci ⇒ `empty_selection`.
+- `load-structure` runs `resolveStructure(input)` → `ctx.loadStructure(resolved)`.
+- The executor **validates the LLM's JSON at this boundary** and returns structured
+  `CommandResult` errors — `invalid_input`, `invalid_selection`, `unsupported_selection`,
+  `no_structure`, `empty_selection`, `unknown_command`, `internal_error` — fed back as a
+  failed `tool_result` so the agent self-corrects.
+- Depending on a **port** (not managers) makes the whole executor **Node-testable**
+  against a fake port + real fixture `Structure`s — see [[testing-strategy]].
+
+The concrete Mol\* calls the **Plan-3 adapter** wires behind the port (all real APIs in
+[[molstar-api]]): `highlight` → `interactivity.lociHighlights.highlightOnly({ loci })`,
+`focus` → `managers.camera.focusLoci(loci, opts)`, `load-structure` → `builders.data.*`
++ `parseTrajectory` + preset, `reset-camera` → `managers.camera.reset()`,
+`getSceneContext` from the hierarchy.
 
 ## The integration seam (verified Anthropic shapes)
 
@@ -137,4 +155,8 @@ van-der-view created (`PluginUIContext` extends `PluginContext`, so the same
 ## Open questions
 - `dispatch(Command)` only, vs a convenience overload accepting the raw provider block.
 - How the developer ergonomically loops tool_calls — manual loop vs a `vdv` helper.
-- Testing the executor/adapters in isolation — see [[testing-strategy]].
+- ✅ **Testing the executor/adapters in isolation** — done: both are Node unit-tested
+  (Plan 1 adapter; Plan 2 executor + `resolveSelection` against fixtures), src: raw/0008.
+  See [[testing-strategy]].
+- The real `PluginContext`→`ExecutorContext` adapter (the manager calls behind the port)
+  is **Plan 3**; verify each signature against `node_modules/molstar/lib/**/*.d.ts`.
