@@ -3,7 +3,7 @@ title: Agent Command Schema (van-der-view contract)
 slug: command-schema
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md]
 updated: 2026-06-18
 links: [agent-command-flow, molviewspec, molstar-api, molstar-webxr, project-overview]
 ---
@@ -48,6 +48,11 @@ type CommandResult =
 ```
 The agent-side **adapter** produces/consumes the provider wire format; the
 executor only ever sees `Command`. See [[agent-command-flow]].
+
+**v1 `error.code` values** (defined by the implemented executor, src: raw/0008):
+`invalid_input` (malformed command envelope), `invalid_selection` (selection contents
+malformed), `unsupported_selection` (a valid preset not implemented yet), `no_structure`,
+`empty_selection` (selector matched no atoms), `unknown_command`, `internal_error`.
 
 ## v1 command catalog (locked)
 
@@ -117,6 +122,15 @@ type ResolveStructure = (input: LoadInput) => Promise<{ data?:string; url?:strin
 
 ## Open questions
 - Envelope: batch commands (array) and transactions? Streaming ack protocol?
-- Error code taxonomy (which `error.code` values, how granular).
-- Exact `Selection` rule: are `chain`/`residues`/`numbering` and `preset` mutually exclusive?
-- Testing of the schema/executor — see [[testing-strategy]].
+- ✅ **Error code taxonomy** — the v1 `error.code` set is defined and enforced by the
+  executor (src: raw/0008, listed above). Remaining: whether to open it to host-defined
+  codes (a custom `resolveStructure` / Plan-3 adapter currently must throw an
+  `ExecutorError` to surface a code).
+- **`Selection` rule** — the executor treats `preset` as **short-circuiting**: if
+  `preset` is set it resolves that (currently → `unsupported_selection`, or
+  `invalid_selection` for an unknown preset) and ignores `chain`/`residues`; otherwise it
+  requires a chain and/or residues. Full preset support + the strict mutual-exclusivity
+  decision are deferred (src: raw/0008). A residues-only selection (no chain) currently
+  matches that residue number in **all** chains — semantics TBD.
+- ✅ **Testing of the schema/executor** — adapter + executor + `resolveSelection` are
+  Node unit-tested (src: raw/0008). See [[testing-strategy]].

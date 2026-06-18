@@ -3,7 +3,7 @@ title: Testing Strategy
 slug: testing-strategy
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0004-testing-strategy-decisions-2026-06-18.md, raw/0007-node-structure-spike-2026-06-18.md, "docs/superpowers/specs/2026-06-18-testing-strategy-design.md"]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0004-testing-strategy-decisions-2026-06-18.md, raw/0007-node-structure-spike-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, "docs/superpowers/specs/2026-06-18-testing-strategy-design.md"]
 updated: 2026-06-18
 links: [agent-command-flow, command-schema, molstar-api, headless-react, molstar-webxr]
 ---
@@ -30,7 +30,7 @@ links: [agent-command-flow, command-schema, molstar-api, headless-react, molstar
 | Target | Test | Note |
 |---|---|---|
 | **Adapters** (`toTools`/`toCommand`) | fixtures of Anthropic `tool_use` → assert exact `Command`; malformed → clean error | F1; see [[agent-command-flow]] |
-| **Selection → loci** | load a structure into a headless data model; assert loci for chain, residue-range, and **auth vs label** | F2; ✅ Node-buildable **confirmed** (src: raw/0007) |
+| **Selection → loci** | load a structure into a headless data model; assert loci for chain, residue-range, and **auth vs label** | F2; ✅ **implemented** — Plan-2 executor + `resolveSelection`, 73 tests on real Node-built fixtures (src: raw/0008) |
 | **SSR-safety** | `renderToString(<MolViewCanvas/>)` in jsdom → no throw, placeholder out, no molstar in output | one test only; see [[headless-react]] |
 
 ⚠️ **`'use client'` is not the SSR guard.** Under Next App Router a `'use client'`
