@@ -1,6 +1,8 @@
 import { Script } from 'molstar/lib/mol-script/script';
-import { Structure, StructureElement, StructureSelection } from 'molstar/lib/mol-model/structure';
-import type { Numbering, ResidueRef, Selection } from './types';
+import { QueryContext, Structure, StructureElement, StructureSelection } from 'molstar/lib/mol-model/structure';
+import { StructureSelectionQueries } from 'molstar/lib/mol-plugin-state/helpers/structure-selection-query';
+import type { StructureSelectionQuery } from 'molstar/lib/mol-plugin-state/helpers/structure-selection-query';
+import type { Numbering, ResidueRef, Selection, SelectionPreset } from './types';
 import { NUMBERINGS, SELECTION_PRESETS } from './types';
 import { SelectionError } from './errors';
 
@@ -31,6 +33,21 @@ function validateResidues(residues: unknown[]): ResidueRef[] {
 }
 
 /**
+ * The 7 v1 presets → Mol*'s own selection queries. All are pure (no plugin/WebGL/async).
+ * Using Mol* query reuse (StructureSelectionQueries) rather than hand-rolled mol-script
+ * expressions, because the upstream queries are correct, maintained, and already tested.
+ */
+const PRESET_QUERIES: Record<SelectionPreset, StructureSelectionQuery> = {
+  all: StructureSelectionQueries.all,
+  polymer: StructureSelectionQueries.polymer,
+  protein: StructureSelectionQueries.protein,
+  nucleic: StructureSelectionQueries.nucleic,
+  ligand: StructureSelectionQueries.ligand,
+  ion: StructureSelectionQueries.ion,
+  water: StructureSelectionQueries.water,
+};
+
+/**
  * Resolve our LLM-friendly Selection to a Mol* loci against a loaded Structure.
  * Pure data-model (no plugin/WebGL). The executor hands us arbitrary JSON the
  * model produced, so we validate field types/values here and throw SelectionError
@@ -42,10 +59,8 @@ export function resolveSelection(selection: Selection, structure: Structure): St
     if (!SELECTION_PRESETS.includes(selection.preset)) {
       throw new SelectionError('invalid_selection', `unknown selection preset "${String(selection.preset)}".`);
     }
-    throw new SelectionError(
-      'unsupported_selection',
-      `preset selectors are not supported yet (got "${selection.preset}").`,
-    );
+    const sel = PRESET_QUERIES[selection.preset].query(new QueryContext(structure));
+    return StructureSelection.toLociWithSourceUnits(sel);
   }
 
   if (selection.chain !== undefined && typeof selection.chain !== 'string') {

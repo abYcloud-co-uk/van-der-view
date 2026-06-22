@@ -59,8 +59,13 @@ describe('VDV_COMMANDS', () => {
     expect(sel.properties.residues.items.oneOf[0].type).toBe('integer');
   });
 
-  it('exposes the v1 style param on highlight', () => {
+  it('does not advertise highlight.style in v1 (deferred to the v1.1 representation cluster)', () => {
     const highlight = VDV_COMMANDS.find((c) => c.name === 'highlight');
-    expect(highlight?.inputSchema.properties).toHaveProperty('style');
+    expect(highlight?.inputSchema.properties).not.toHaveProperty('style');
+  });
+
+  it('types focus.zoomOut as a number', () => {
+    const focus = VDV_COMMANDS.find((c) => c.name === 'focus');
+    expect((focus?.inputSchema.properties.zoomOut as { type: string }).type).toBe('number');
   });
 });

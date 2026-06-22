@@ -3,6 +3,8 @@ import { StructureElement } from 'molstar/lib/mol-model/structure';
 import type { Structure } from 'molstar/lib/mol-model/structure';
 import {
   MMCIF_AUTH_LABEL,
+  PDB_HET,
+  PDB_NUCLEIC,
   PDB_TINY,
   buildStructureFromMmCIF,
   buildStructureFromPDB,
@@ -12,9 +14,13 @@ import { SelectionError } from '../src/errors';
 
 let pdb: Structure;
 let cif: Structure;
+let het: Structure;
+let nucleic: Structure;
 beforeAll(async () => {
   pdb = await buildStructureFromPDB(PDB_TINY);
   cif = await buildStructureFromMmCIF(MMCIF_AUTH_LABEL);
+  het = await buildStructureFromPDB(PDB_HET);
+  nucleic = await buildStructureFromPDB(PDB_NUCLEIC);
 });
 
 const size = (l: StructureElement.Loci) => StructureElement.Loci.size(l);
@@ -51,11 +57,35 @@ describe('resolveSelection — chain + residues', () => {
   });
 });
 
-describe('resolveSelection — guards', () => {
-  it('throws SelectionError for preset selectors (not yet supported)', () => {
-    expect(() => resolveSelection({ preset: 'ligand' }, pdb)).toThrow(SelectionError);
+describe('resolveSelection — presets', () => {
+  it('selects everything with the "all" preset', () => {
+    expect(size(resolveSelection({ preset: 'all' }, pdb))).toBe(10);
   });
 
+  it('selects protein/polymer on an all-protein structure', () => {
+    expect(empty(resolveSelection({ preset: 'protein' }, pdb))).toBe(false);
+    expect(empty(resolveSelection({ preset: 'polymer' }, pdb))).toBe(false);
+  });
+
+  it('returns empty for absent categories on an all-protein structure', () => {
+    expect(empty(resolveSelection({ preset: 'nucleic' }, pdb))).toBe(true);
+    expect(empty(resolveSelection({ preset: 'water' }, pdb))).toBe(true);
+    expect(empty(resolveSelection({ preset: 'ligand' }, pdb))).toBe(true);
+    expect(empty(resolveSelection({ preset: 'ion' }, pdb))).toBe(true);
+  });
+
+  it('selects water/ligand/ion on a HETATM-bearing structure', () => {
+    expect(empty(resolveSelection({ preset: 'water' }, het))).toBe(false);
+    expect(empty(resolveSelection({ preset: 'ligand' }, het))).toBe(false);
+    expect(empty(resolveSelection({ preset: 'ion' }, het))).toBe(false);
+  });
+
+  it('selects nucleic on a DNA-bearing structure', () => {
+    expect(empty(resolveSelection({ preset: 'nucleic' }, nucleic))).toBe(false);
+  });
+});
+
+describe('resolveSelection — guards', () => {
   it('throws SelectionError for an empty selection (no chain, no residues)', () => {
     expect(() => resolveSelection({}, pdb)).toThrow(SelectionError);
   });
@@ -93,7 +123,7 @@ describe('resolveSelection — input validation', () => {
     expect(size(resolveSelection({ chain: 'A', residues: [[2, 1]], numbering: 'auth' }, pdb))).toBe(6);
   });
 
-  it('distinguishes an unknown preset (invalid) from a valid-but-unsupported one', () => {
+  it('throws invalid_selection for an unknown preset', () => {
     const codeOf = (fn: () => unknown): string => {
       try {
         fn();
@@ -103,6 +133,5 @@ describe('resolveSelection — input validation', () => {
       throw new Error('expected resolveSelection to throw');
     };
     expect(codeOf(() => resolveSelection({ preset: 'bogus' } as any, pdb))).toBe('invalid_selection');
-    expect(codeOf(() => resolveSelection({ preset: 'ligand' }, pdb))).toBe('unsupported_selection');
   });
 });

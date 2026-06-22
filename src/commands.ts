@@ -34,18 +34,6 @@ const selectionSchema = {
   additionalProperties: false,
 };
 
-/** JSON Schema fragment for an optional appearance override on highlight. */
-const styleSchema = {
-  type: 'object',
-  description: 'Optional appearance override.',
-  properties: {
-    repr: { type: 'string', description: 'Representation, e.g. cartoon, ball-and-stick.' },
-    color: { type: 'string', description: 'Color, e.g. a hex string ("#ff0000") or a named color.' },
-    opacity: { type: 'number', minimum: 0, maximum: 1, description: 'Opacity, 0–1.' },
-  },
-  additionalProperties: false,
-};
-
 /**
  * The canonical v1 command catalog (provider-neutral). Deep-frozen: it is an
  * exported singleton and must not be mutated by consumers.
@@ -77,7 +65,7 @@ export const VDV_COMMANDS: readonly CommandSpec[] = deepFreeze<CommandSpec[]>([
     description: 'Transiently highlight a selection of residues, a chain, or a ligand.',
     inputSchema: {
       type: 'object',
-      properties: { selection: selectionSchema, style: styleSchema },
+      properties: { selection: selectionSchema },
       required: ['selection'],
       additionalProperties: false,
     },
@@ -90,7 +78,10 @@ export const VDV_COMMANDS: readonly CommandSpec[] = deepFreeze<CommandSpec[]>([
       properties: {
         selection: selectionSchema,
         durationMs: { type: 'number', description: 'Camera animation duration in ms.' },
-        zoomOut: { type: 'number', description: 'Extra zoom-out factor.' },
+        zoomOut: {
+          type: 'number',
+          description: 'Zoom-out factor: 1 fits the selection, 2 frames about twice as wide for context.',
+        },
       },
       required: ['selection'],
       additionalProperties: false,

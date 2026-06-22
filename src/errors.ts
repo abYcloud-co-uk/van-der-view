@@ -7,7 +7,7 @@
 export type ErrorCode =
   | 'invalid_input'
   | 'invalid_selection'
-  | 'unsupported_selection'
+  | 'unsupported_selection' // reserved; retained for API compatibility (no longer thrown in v1)
   | 'no_structure'
   | 'empty_selection'
   | 'unknown_command'
