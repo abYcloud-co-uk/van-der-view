@@ -114,32 +114,32 @@ describe('createExecutor — highlight/focus', () => {
     expect(errorOf(res).code).toBe('empty_selection');
   });
 
-  it('forwards focus.zoomOut as a boolean focus option', async () => {
+  it('forwards focus.zoomOut as a numeric focus option', async () => {
     const ctx = fakeContext();
     const res = await createExecutor(ctx).dispatch({
       name: 'focus',
-      input: { selection: { chain: 'A' }, zoomOut: true },
+      input: { selection: { chain: 'A' }, zoomOut: 2 },
     });
     expect(res.ok).toBe(true);
     const [, opts] = (ctx.focus as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(opts).toEqual({ zoomOut: true });
+    expect(opts).toEqual({ zoomOut: 2 });
   });
 
   it('forwards both durationMs and zoomOut when given', async () => {
     const ctx = fakeContext();
     await createExecutor(ctx).dispatch({
       name: 'focus',
-      input: { selection: { chain: 'A' }, durationMs: 250, zoomOut: true },
+      input: { selection: { chain: 'A' }, durationMs: 250, zoomOut: 1.5 },
     });
     const [, opts] = (ctx.focus as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(opts).toEqual({ durationMs: 250, zoomOut: true });
+    expect(opts).toEqual({ durationMs: 250, zoomOut: 1.5 });
   });
 
-  it('ignores a non-boolean zoomOut', async () => {
+  it('ignores a non-numeric zoomOut', async () => {
     const ctx = fakeContext();
     await createExecutor(ctx).dispatch({
       name: 'focus',
-      input: { selection: { chain: 'A' }, zoomOut: 'yes' },
+      input: { selection: { chain: 'A' }, zoomOut: true },
     });
     const [, opts] = (ctx.focus as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(opts).toBeUndefined();

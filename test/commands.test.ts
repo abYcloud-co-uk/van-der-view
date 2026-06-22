@@ -64,8 +64,8 @@ describe('VDV_COMMANDS', () => {
     expect(highlight?.inputSchema.properties).not.toHaveProperty('style');
   });
 
-  it('types focus.zoomOut as a boolean', () => {
+  it('types focus.zoomOut as a number', () => {
     const focus = VDV_COMMANDS.find((c) => c.name === 'focus');
-    expect((focus?.inputSchema.properties.zoomOut as { type: string }).type).toBe('boolean');
+    expect((focus?.inputSchema.properties.zoomOut as { type: string }).type).toBe('number');
   });
 });

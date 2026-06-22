@@ -78,7 +78,10 @@ export const VDV_COMMANDS: readonly CommandSpec[] = deepFreeze<CommandSpec[]>([
       properties: {
         selection: selectionSchema,
         durationMs: { type: 'number', description: 'Camera animation duration in ms.' },
-        zoomOut: { type: 'boolean', description: 'Frame the selection a bit wider (extra camera pull-back).' },
+        zoomOut: {
+          type: 'number',
+          description: 'Zoom-out factor: 1 fits the selection, 2 frames about twice as wide for context.',
+        },
       },
       required: ['selection'],
       additionalProperties: false,

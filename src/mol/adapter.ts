@@ -4,9 +4,6 @@ import type { Structure } from 'molstar/lib/mol-model/structure';
 import type { ExecutorContext, FocusOptions, SceneContext } from '../context';
 import type { ResolvedStructure } from '../resolve-structure';
 
-/** Extra camera pull-back (Å) applied when a focus command sets zoomOut. */
-const ZOOM_OUT_EXTRA_RADIUS = 8;
-
 /** Per-Structure chain-id cache. A Structure is immutable, so its chain list never
  *  changes; the WeakMap auto-evicts when the Structure is GC'd. get-scene-context is
  *  called often (the agent reads it before guessing selectors), so this avoids
@@ -70,10 +67,15 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
     },
 
     focus(loci, options?: FocusOptions) {
-      plugin.managers.camera.focusLoci(loci, {
-        durationMs: options?.durationMs,
-        ...(options?.zoomOut ? { extraRadius: ZOOM_OUT_EXTRA_RADIUS } : {}),
-      });
+      // zoomOut is a factor (1 = fit). For >1, widen the framed sphere proportionally to
+      // the structure's size so the pull-back is visible regardless of structure scale;
+      // <=1 (or omitted) leaves Mol*'s default extraRadius (a tight fit with a small pad).
+      const factor = options?.zoomOut;
+      const extra =
+        factor !== undefined && factor > 1
+          ? { extraRadius: (factor - 1) * loci.structure.boundary.sphere.radius }
+          : {};
+      plugin.managers.camera.focusLoci(loci, { durationMs: options?.durationMs, ...extra });
     },
 
     resetCamera() {

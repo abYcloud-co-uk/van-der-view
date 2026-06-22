@@ -64,7 +64,7 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
           if (StructureElement.Loci.isEmpty(loci)) return fail('empty_selection', 'selection matched no atoms.');
           const focusOptions: FocusOptions = {};
           if (typeof input.durationMs === 'number') focusOptions.durationMs = input.durationMs;
-          if (typeof input.zoomOut === 'boolean') focusOptions.zoomOut = input.zoomOut;
+          if (typeof input.zoomOut === 'number') focusOptions.zoomOut = input.zoomOut;
           ctx.focus(loci, Object.keys(focusOptions).length > 0 ? focusOptions : undefined);
           return ok();
         }

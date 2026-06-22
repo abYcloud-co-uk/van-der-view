@@ -4,7 +4,8 @@ import type { ResolvedStructure } from './resolve-structure';
 /** Camera focus options (subset surfaced to the agent). */
 export interface FocusOptions {
   durationMs?: number;
-  zoomOut?: boolean;
+  /** Zoom-out factor: 1 (or omitted) fits the selection; >1 frames proportionally wider. */
+  zoomOut?: number;
 }
 
 /** Minimal read-model of the scene, returned by get-scene-context. */
