@@ -6,6 +6,9 @@ import type { MolView, CreateMolViewOptions } from '../mol/create-mol-view';
 /** Host configuration passed to createMolView by the canvas. */
 export type MolViewConfig = Pick<CreateMolViewOptions, 'resolveStructure'>;
 
+/** Stable empty-config sentinel so an omitted `config` prop doesn't churn the context value. */
+const EMPTY_CONFIG: MolViewConfig = {};
+
 interface MolViewContextValue {
   view: MolView | undefined;
   config: MolViewConfig;
@@ -24,7 +27,7 @@ export interface MolViewProviderProps {
 
 export function MolViewProvider({ config, plugin, children }: MolViewProviderProps) {
   const [view, setView] = useState<MolView | undefined>(undefined);
-  const cfg = config ?? {};
+  const cfg = config ?? EMPTY_CONFIG;
   const value = useMemo<MolViewContextValue>(
     () => ({ view, config: cfg, plugin, registerView: setView }),
     [view, cfg, plugin],
