@@ -4,7 +4,7 @@ import type { PluginContext } from 'molstar/lib/mol-plugin/context'; // type-onl
 import type { MolView, CreateMolViewOptions } from '../mol/create-mol-view';
 
 /** Host configuration passed to createMolView by the canvas. */
-export type MolViewConfig = Pick<CreateMolViewOptions, 'resolveStructure'>;
+export type MolViewConfig = Pick<CreateMolViewOptions, 'resolveStructure' | 'resolveCoordinates'>;
 
 /** Stable empty-config sentinel so an omitted `config` prop doesn't churn the context value. */
 const EMPTY_CONFIG: MolViewConfig = {};
