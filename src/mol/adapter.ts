@@ -7,8 +7,17 @@ import type { ResolvedStructure } from '../resolve-structure';
 /** Extra camera pull-back (Å) applied when a focus command sets zoomOut. */
 const ZOOM_OUT_EXTRA_RADIUS = 8;
 
-/** Distinct chain ids (auth) of a Structure, in first-seen order. */
+/** Per-Structure chain-id cache. A Structure is immutable, so its chain list never
+ *  changes; the WeakMap auto-evicts when the Structure is GC'd. get-scene-context is
+ *  called often (the agent reads it before guessing selectors), so this avoids
+ *  re-walking every unit on each call. */
+const chainCache = new WeakMap<Structure, string[]>();
+
+/** Distinct chain ids of a Structure, in first-seen order (auth for atomic units,
+ *  label for coarse units — auth numbering isn't defined for coarse models). */
 function chainsOf(structure: Structure): string[] {
+  const cached = chainCache.get(structure);
+  if (cached) return cached;
   const seen = new Set<string>();
   const loc = StructureElement.Location.create(structure);
   for (const unit of structure.units) {
@@ -20,7 +29,9 @@ function chainsOf(structure: Structure): string[] {
       : StructureProperties.chain.label_asym_id(loc);
     seen.add(id);
   }
-  return [...seen];
+  const chains = [...seen];
+  chainCache.set(structure, chains);
+  return chains;
 }
 
 /**
@@ -35,6 +46,10 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
     getStructure,
 
     async loadStructure(resolved: ResolvedStructure): Promise<void> {
+      // load-structure replaces the scene: v1 is single-structure, and every later
+      // command reads structures[0], so a prior structure must be cleared first
+      // (otherwise a second load would be appended and silently ignored).
+      await plugin.clear();
       const data =
         resolved.url !== undefined
           ? await plugin.builders.data.download(
