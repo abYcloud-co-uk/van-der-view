@@ -24,3 +24,4 @@ distilled, mutable knowledge; `raw/` is the permanent record it rests on.
 | 0007 | [0007-node-structure-spike-2026-06-18.md](0007-node-structure-spike-2026-06-18.md) | dev session 2026-06-18 (Node-Structure spike + pnpm build-gate) | 2026-06-18 |
 | 0008 | [0008-plan2-executor-core-2026-06-18.md](0008-plan2-executor-core-2026-06-18.md) | dev session 2026-06-18 (Plan 2 executor core implemented + merged, PR #8) | 2026-06-18 |
 | 0009 | [0009-plan3a-browser-runtime-core-2026-06-22.md](0009-plan3a-browser-runtime-core-2026-06-22.md) | dev session 2026-06-22 (Plan 3a browser runtime core implemented + merged, PR #12) | 2026-06-22 |
+| 0010 | [0010-molstar-trajectory-loading-2026-06-22.md](0010-molstar-trajectory-loading-2026-06-22.md) | dev session 2026-06-22 (molstar 5.10.1 source inspection — trajectory/topology+coordinates loading) | 2026-06-22 |

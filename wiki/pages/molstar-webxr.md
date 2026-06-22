@@ -5,7 +5,7 @@ type: entity
 status: stable
 sources: [raw/0001-molstar-research.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, "https://molstar.org/xr/"]
 updated: 2026-06-22
-links: [molstar-api, command-schema, project-overview, testing-strategy]
+links: [molstar-api, command-schema, project-overview, testing-strategy, molstar-trajectories]
 ---
 
 # Mol* WebXR support

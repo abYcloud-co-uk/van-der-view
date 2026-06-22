@@ -5,7 +5,7 @@ type: decision
 status: stable
 sources: [raw/0003-design-decisions-2026-06-18.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, "user brief 2026-06-18"]
 updated: 2026-06-22
-links: [command-schema, agent-command-flow, molstar-api, molviewspec, molstar-webxr, headless-react, testing-strategy]
+links: [command-schema, agent-command-flow, molstar-api, molviewspec, molstar-webxr, headless-react, testing-strategy, molstar-trajectories]
 ---
 
 # Project Overview — van-der-view
