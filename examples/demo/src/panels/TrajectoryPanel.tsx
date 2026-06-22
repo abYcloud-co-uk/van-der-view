@@ -7,9 +7,9 @@ import { Panel, ResultView } from '../ui';
 /**
  * Manual trajectory panel. There is no bundled coordinate fixture (an XTC is large and
  * binary), so paste URLs to a locally-served topology + coordinate file — e.g. serve the
- * gitignored MD_Data/ folder with `npx serve MD_Data` and use its printed origin:
- *   topology:    http://localhost:3000/5GGS/5GGS_nowat.pdb   (format: pdb)
- *   coordinates: http://localhost:3000/5GGS/5GGS_nowat.xtc   (format: xtc)
+ * gitignored MD_Data/ folder with `npx serve MD_Data/5GGS` and use its printed origin:
+ *   topology:    http://localhost:3000/5GGS_nowat.pdb   (format: pdb)
+ *   coordinates: http://localhost:3000/5GGS_nowat.xtc   (format: xtc)
  */
 export function TrajectoryPanel() {
   const viewer = useMolView();
