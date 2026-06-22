@@ -21,7 +21,7 @@ export function MolViewCanvas(props: HTMLAttributes<HTMLDivElement>) {
   useEffect(() => {
     let disposed = false;
     let created: { dispose(): void } | undefined;
-    void (async () => {
+    (async () => {
       const { createMolView } = await import('../mol/create-mol-view');
       if (disposed || !canvasRef.current || !containerRef.current) return;
       const { config, plugin, registerView } = ctxRef.current;
@@ -34,7 +34,11 @@ export function MolViewCanvas(props: HTMLAttributes<HTMLDivElement>) {
       if (disposed) { view.dispose(); return; }
       created = view;
       registerView(view);
-    })();
+    })().catch((err) => {
+      // Mount failure (e.g. WebGL unavailable). Log so it isn't a silent unhandled
+      // rejection; a richer onError/error-state surface is a Plan-3 handoff item.
+      if (!disposed) console.error('[van-der-view] <MolViewCanvas> failed to initialize Mol*:', err);
+    });
     return () => {
       disposed = true;
       ctxRef.current.registerView(undefined);
