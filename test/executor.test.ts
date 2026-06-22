@@ -103,6 +103,37 @@ describe('createExecutor — highlight/focus', () => {
     });
     expect(errorOf(res).code).toBe('unsupported_selection');
   });
+
+  it('forwards focus.zoomOut as a boolean focus option', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'focus',
+      input: { selection: { chain: 'A' }, zoomOut: true },
+    });
+    expect(res.ok).toBe(true);
+    const [, opts] = (ctx.focus as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(opts).toEqual({ zoomOut: true });
+  });
+
+  it('forwards both durationMs and zoomOut when given', async () => {
+    const ctx = fakeContext();
+    await createExecutor(ctx).dispatch({
+      name: 'focus',
+      input: { selection: { chain: 'A' }, durationMs: 250, zoomOut: true },
+    });
+    const [, opts] = (ctx.focus as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(opts).toEqual({ durationMs: 250, zoomOut: true });
+  });
+
+  it('ignores a non-boolean zoomOut', async () => {
+    const ctx = fakeContext();
+    await createExecutor(ctx).dispatch({
+      name: 'focus',
+      input: { selection: { chain: 'A' }, zoomOut: 'yes' },
+    });
+    const [, opts] = (ctx.focus as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(opts).toBeUndefined();
+  });
 });
 
 describe('createExecutor — load-structure + input validation', () => {

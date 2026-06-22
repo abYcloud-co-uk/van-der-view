@@ -62,9 +62,10 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
           const input = asObject(command.input);
           const loci = lociFor(ctx, requireSelection(input));
           if (StructureElement.Loci.isEmpty(loci)) return fail('empty_selection', 'selection matched no atoms.');
-          const focusOptions: FocusOptions | undefined =
-            typeof input.durationMs === 'number' ? { durationMs: input.durationMs } : undefined;
-          ctx.focus(loci, focusOptions);
+          const focusOptions: FocusOptions = {};
+          if (typeof input.durationMs === 'number') focusOptions.durationMs = input.durationMs;
+          if (typeof input.zoomOut === 'boolean') focusOptions.zoomOut = input.zoomOut;
+          ctx.focus(loci, Object.keys(focusOptions).length > 0 ? focusOptions : undefined);
           return ok();
         }
         case 'get-scene-context':
