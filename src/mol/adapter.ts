@@ -139,8 +139,7 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
       }
       const modelRef = (result.preset as { model?: { ref: string } } | undefined)?.model?.ref;
       if (!modelRef) {
-        traj = undefined;
-        return;
+        throw new ExecutorError('internal_error', 'loadTrajectory: molstar returned no model ref (unexpected preset shape).');
       }
       const modelCell = plugin.state.data.cells.get(modelRef);
       const trajRef = modelCell?.transform.parent;
