@@ -3,8 +3,8 @@ title: Agent Command Flow (adapter + executor)
 slug: agent-command-flow
 type: how-to
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md]
-updated: 2026-06-18
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md]
+updated: 2026-06-22
 links: [command-schema, molstar-api, headless-react, project-overview]
 ---
 
@@ -25,7 +25,9 @@ links: [command-schema, molstar-api, headless-react, project-overview]
   is the developer handing each tool_call to our executor (src: raw/0003).
 - **Both halves are implemented and Node-tested** (Plan 1 = agent-side schema +
   Anthropic adapter; Plan 2 = the executor, `createExecutor(ctx).dispatch(Command)`
-  over an `ExecutorContext` port). Merged to `main` (src: raw/0008).
+  over an `ExecutorContext` port). Merged to `main` (src: raw/0008). **Plan 3a** then
+  added the **real Mol\* adapter** (`molstarExecutorContext(plugin)`) behind that port plus
+  the React mount — so a developer can actually mount it and render (src: raw/0009).
 
 ## The data flow
 
@@ -73,7 +75,7 @@ executor nor the command specs (src: raw/0003).
 **`ExecutorContext` port** — it never touches raw Mol\* managers directly:
 
 ```ts
-interface ExecutorContext {          // a real Mol* adapter (Plan 3) or a test fake implements this
+interface ExecutorContext {          // implemented by the real Mol* adapter (Plan 3a) or a test fake
   getStructure(): Structure | undefined;
   loadStructure(resolved): Promise<void>;
   highlight(loci): void;  clearHighlight(): void;
@@ -93,11 +95,13 @@ const { dispatch } = createExecutor(ctx, { resolveStructure });   // resolveStru
 - Depending on a **port** (not managers) makes the whole executor **Node-testable**
   against a fake port + real fixture `Structure`s — see [[testing-strategy]].
 
-The concrete Mol\* calls the **Plan-3 adapter** wires behind the port (all real APIs in
-[[molstar-api]]): `highlight` → `interactivity.lociHighlights.highlightOnly({ loci })`,
-`focus` → `managers.camera.focusLoci(loci, opts)`, `load-structure` → `builders.data.*`
-+ `parseTrajectory` + preset, `reset-camera` → `managers.camera.reset()`,
-`getSceneContext` from the hierarchy.
+The concrete Mol\* calls the **adapter** wires behind the port — implemented in Plan 3a as
+`molstarExecutorContext(plugin)` (all real APIs in [[molstar-api]]): `highlight` →
+`interactivity.lociHighlights.highlightOnly({ loci })`, `focus` →
+`managers.camera.focusLoci(loci, { durationMs, extraRadius })`, `load-structure` →
+`plugin.clear()` + `builders.data.*` + `parseTrajectory` + preset, `reset-camera` →
+`managers.camera.reset()`, `getSceneContext` from the hierarchy (chains memoized per
+`Structure`) (src: raw/0009).
 
 ## The integration seam (verified Anthropic shapes)
 
@@ -144,7 +148,8 @@ The executor can drive a Mol\* instance the host **already mounted** —
 `createMolView({ plugin })` / `<MolViewProvider plugin={…}>` — not only one
 van-der-view created (`PluginUIContext` extends `PluginContext`, so the same
 `managers`/`builders` calls work). Useful when the app already has a Mol\* viewer
-(src: raw/0005).
+(src: raw/0005). **Implemented in Plan 3a as dual-mode ownership:** attach to a host plugin
+and **never dispose** it, or (no plugin given) create+own+dispose vdv's own (src: raw/0009).
 
 ## See also
 - [[command-schema]] — the command catalog and `Selection` type
@@ -158,5 +163,6 @@ van-der-view created (`PluginUIContext` extends `PluginContext`, so the same
 - ✅ **Testing the executor/adapters in isolation** — done: both are Node unit-tested
   (Plan 1 adapter; Plan 2 executor + `resolveSelection` against fixtures), src: raw/0008.
   See [[testing-strategy]].
-- The real `PluginContext`→`ExecutorContext` adapter (the manager calls behind the port)
-  is **Plan 3**; verify each signature against `node_modules/molstar/lib/**/*.d.ts`.
+- ✅ The real `PluginContext`→`ExecutorContext` adapter (the manager calls behind the port)
+  is **implemented** in Plan 3a (`molstarExecutorContext`), typechecked against molstar
+  5.10.1 `.d.ts`; GPU-side rendering is verified by hand in Plan 3b (src: raw/0009).

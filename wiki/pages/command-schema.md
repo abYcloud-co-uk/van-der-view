@@ -3,8 +3,8 @@ title: Agent Command Schema (van-der-view contract)
 slug: command-schema
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md]
-updated: 2026-06-18
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md]
+updated: 2026-06-22
 links: [agent-command-flow, molviewspec, molstar-api, molstar-webxr, project-overview]
 ---
 
@@ -51,16 +51,18 @@ executor only ever sees `Command`. See [[agent-command-flow]].
 
 **v1 `error.code` values** (defined by the implemented executor, src: raw/0008):
 `invalid_input` (malformed command envelope), `invalid_selection` (selection contents
-malformed), `unsupported_selection` (a valid preset not implemented yet), `no_structure`,
-`empty_selection` (selector matched no atoms), `unknown_command`, `internal_error`.
+malformed, incl. an unknown preset name), `no_structure`, `empty_selection` (selector
+matched no atoms), `unknown_command`, `internal_error`. ⚠️ `unsupported_selection` is now
+**reserved but never thrown** — Plan 3a implemented all 7 presets, so there is no
+"valid-but-unimplemented preset" path; the code is kept for API compatibility (src: raw/0009).
 
 ## v1 command catalog (locked)
 
 | command | tier | params (sketch) | Mol\* mapping |
 |---|---|---|---|
-| `load-structure` | **v1** | `{ source:"pdb"\|"url"\|"inline", id?, url?, data?, format? }` | `download` (pdb/url) or `rawData` (inline) + `parseTrajectory` + preset; via `resolveStructure` ([[molstar-api]]) |
-| `highlight` | **v1** | `{ selection: Selection, style?: {repr?, color?, opacity?} }` | `interactivity.lociHighlights.highlightOnly` or component+representation |
-| `focus` | **v1** | `{ selection: Selection, durationMs?, zoomOut? }` | `managers.camera.focusLoci(loci, …)` |
+| `load-structure` | **v1** | `{ source:"pdb"\|"url"\|"inline", id?, url?, data?, format? }` | `clear()` then `download` (pdb/url) or `rawData` (inline) + `parseTrajectory` + preset; via `resolveStructure` ([[molstar-api]]) — **replaces** the scene (v1 = single-structure) |
+| `highlight` | **v1** | `{ selection: Selection }` | `interactivity.lociHighlights.highlightOnly({ loci })` |
+| `focus` | **v1** | `{ selection: Selection, durationMs?, zoomOut?:number }` | `managers.camera.focusLoci(loci, { durationMs, extraRadius })` |
 | `get-scene-context` | **v1** | `{}` | **read tool** → `getSceneContext()` (the "up" channel) |
 | `reset-camera` | **v1** | `{}` | `managers.camera.reset()` |
 | `color` | v1.1 | `{ selection, color }` | `component.updateRepresentationsTheme` |
@@ -70,6 +72,17 @@ malformed), `unsupported_selection` (a valid preset not implemented yet), `no_st
 
 `get-scene-context` is **in v1** and is a real read tool the agent can call, not
 just system-prompt metadata — so it doesn't guess selectors (src: raw/0003).
+
+**Plan-3a schema deltas (implemented, src: raw/0009):**
+- **`highlight.style` was dropped from v1** and moved to the **v1.1 representation
+  cluster** (alongside `color`/`set-representation`) — the 3a cut line. `highlight` is
+  just `{ selection }` in v1.
+- **`focus.zoomOut` is a NUMERIC factor** (not a boolean): `1` fits the selection, `2`
+  frames ≈ twice as wide for context. The adapter realizes it as
+  `extraRadius = (zoomOut − 1) × structure.boundary.sphere.radius` so the pull-back scales
+  with structure size; `≤ 1`/omitted leaves Mol\*'s default tight fit ([[molstar-api]]).
+- **All 7 presets now resolve** for real via Mol\*'s own pure-Node selection queries
+  ([[molstar-api]]); the schema's preset enum is fully backed.
 
 ### Shared `Selection` type (LLM-friendly)
 
@@ -123,14 +136,15 @@ type ResolveStructure = (input: LoadInput) => Promise<{ data?:string; url?:strin
 ## Open questions
 - Envelope: batch commands (array) and transactions? Streaming ack protocol?
 - ✅ **Error code taxonomy** — the v1 `error.code` set is defined and enforced by the
-  executor (src: raw/0008, listed above). Remaining: whether to open it to host-defined
-  codes (a custom `resolveStructure` / Plan-3 adapter currently must throw an
-  `ExecutorError` to surface a code).
+  executor (src: raw/0008, listed above); Plan 3a left it intact and reduced
+  `unsupported_selection` to a reserved-unused code (raw/0009). Remaining: whether to open
+  it to host-defined codes (a custom `resolveStructure` / the Mol\* adapter currently must
+  throw an `ExecutorError` to surface a code).
 - **`Selection` rule** — the executor treats `preset` as **short-circuiting**: if
-  `preset` is set it resolves that (currently → `unsupported_selection`, or
-  `invalid_selection` for an unknown preset) and ignores `chain`/`residues`; otherwise it
-  requires a chain and/or residues. Full preset support + the strict mutual-exclusivity
-  decision are deferred (src: raw/0008). A residues-only selection (no chain) currently
-  matches that residue number in **all** chains — semantics TBD.
+  `preset` is set it resolves that (now a **real** loci via Mol\*'s selection queries, or
+  `invalid_selection` for an unknown preset name) and ignores `chain`/`residues`; otherwise
+  it requires a chain and/or residues (src: raw/0008, raw/0009). The strict
+  mutual-exclusivity decision is still deferred. A residues-only selection (no chain)
+  currently matches that residue number in **all** chains — semantics TBD.
 - ✅ **Testing of the schema/executor** — adapter + executor + `resolveSelection` are
   Node unit-tested (src: raw/0008). See [[testing-strategy]].

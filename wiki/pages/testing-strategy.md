@@ -3,8 +3,8 @@ title: Testing Strategy
 slug: testing-strategy
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0004-testing-strategy-decisions-2026-06-18.md, raw/0007-node-structure-spike-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, "docs/superpowers/specs/2026-06-18-testing-strategy-design.md"]
-updated: 2026-06-18
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0004-testing-strategy-decisions-2026-06-18.md, raw/0007-node-structure-spike-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, "docs/superpowers/specs/2026-06-18-testing-strategy-design.md"]
+updated: 2026-06-22
 links: [agent-command-flow, command-schema, molstar-api, headless-react, molstar-webxr]
 ---
 
@@ -30,8 +30,12 @@ links: [agent-command-flow, command-schema, molstar-api, headless-react, molstar
 | Target | Test | Note |
 |---|---|---|
 | **Adapters** (`toTools`/`toCommand`) | fixtures of Anthropic `tool_use` → assert exact `Command`; malformed → clean error | F1; see [[agent-command-flow]] |
-| **Selection → loci** | load a structure into a headless data model; assert loci for chain, residue-range, and **auth vs label** | F2; ✅ **implemented** — Plan-2 executor + `resolveSelection`, 73 tests on real Node-built fixtures (src: raw/0008) |
-| **SSR-safety** | `renderToString(<MolViewCanvas/>)` in jsdom → no throw, placeholder out, no molstar in output | one test only; see [[headless-react]] |
+| **Selection → loci** | load a structure into a headless data model; assert loci for chain, residue-range, **auth vs label**, and the **7 presets** | F2; ✅ **implemented** — executor + `resolveSelection` + the pure-Node preset queries, on real Node-built fixtures incl. `PDB_HET`/`PDB_NUCLEIC` (src: raw/0008, raw/0009) |
+| **SSR-safety** | `renderToString(<MolViewProvider><MolViewCanvas/></MolViewProvider>)` in jsdom → no throw, placeholder out, no molstar in output | ✅ **implemented** `test/ssr.test.tsx`; see [[headless-react]] |
+| **XR wrappers** | `createXrApi(stubPlugin)` → null-safe `isSupported`/`isPresenting`/`request`/`end` | ✅ **implemented** `test/xr.test.ts` (stub plugin; device path manual) — [[molstar-webxr]] |
+
+Plan 3a brought the suite to **88 tests** green (`pnpm test` / `pnpm typecheck`); the SSR
+smoke needed `vitest.config.ts` to also glob `test/**/*.test.tsx` (src: raw/0009).
 
 ⚠️ **`'use client'` is not the SSR guard.** Under Next App Router a `'use client'`
 module is still imported and first-rendered server-side. The guard is: molstar
@@ -41,6 +45,13 @@ render, placeholder on first paint ([[headless-react]]). The smoke test verifies
 Node smoke catches the #1 breakage (a server import touching `window`) (src: raw/0004).
 
 ## What is manual (visual demo, not in CI)
+
+Plan 3a's **GPU/plugin-bound code is typecheck-gated, not unit-tested** — the real Mol\*
+adapter (`molstarExecutorContext`), `createMolView`, and the `<MolViewCanvas/>` mount are
+proven by `tsc` + manual run, since exercising them needs a real WebGL context (src:
+raw/0009). They get eyeballed in the demo below (Plan 3b), where `focus.zoomOut`'s
+comfortable magnitude is also tuned.
+
 A standalone **Vite** app at `examples/demo/`, client-only, **no LLM/chat** (src: raw/0004):
 - **Preset command buttons** → `viewer.dispatch(Command)` directly (F2).
 - **Paste `tool_use` box** → `adapters.anthropic.toCommand` → show normalized

@@ -3,8 +3,8 @@ title: Project Overview — van-der-view
 slug: project-overview
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, "user brief 2026-06-18"]
-updated: 2026-06-18
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, "user brief 2026-06-18"]
+updated: 2026-06-22
 links: [command-schema, agent-command-flow, molstar-api, molviewspec, molstar-webxr, headless-react, testing-strategy]
 ---
 
@@ -54,11 +54,14 @@ live changes in a complex Web 3D molecular view.
   raw Mol\*. Executor is provider-agnostic; adapters are per-provider (v1 = Anthropic,
   OpenAI/Codex placeholder). See [[agent-command-flow]] and [[command-schema]].
 - **v1 commands:** load-structure, highlight, focus, get-scene-context, reset-camera.
-- **Build status (src: raw/0008):** the **agent-side core** (schema + Anthropic adapter,
-  Plan 1) and the **browser-side executor core** (`createExecutor().dispatch()` over an
-  `ExecutorContext` port, Plan 2) are implemented, Node-tested, and merged. Next is
-  **Plan 3** — the React mount + the real `PluginContext`→`ExecutorContext` adapter +
-  SSR smoke + the Vite demo + XR. See [[agent-command-flow]], [[testing-strategy]].
+- **Build status (src: raw/0008, raw/0009):** the **agent-side core** (schema + Anthropic
+  adapter, Plan 1), the **browser-side executor core** (`createExecutor().dispatch()` over
+  an `ExecutorContext` port, Plan 2), and the **browser runtime core** (the real
+  `molstarExecutorContext` adapter + the `<MolViewProvider>`/`useMolView()`/`<MolViewCanvas/>`
+  React mount + an SSR smoke, **Plan 3a**) are implemented, Node-tested, and merged (88
+  tests). Next is **Plan 3b** — the Vite demo + manual XR / visual checklist (where camera
+  feel, incl. `focus.zoomOut` magnitude, is tuned by eye) — then packaging. See
+  [[headless-react]], [[agent-command-flow]], [[testing-strategy]].
 - **Integration deltas (from the first real target, src: raw/0005):** `load-structure`
   adds an `inline` source and routes all loading through a host `resolveStructure`
   hook (auth/storage stays in the host); the executor can **attach to a host-owned
@@ -78,9 +81,13 @@ live changes in a complex Web 3D molecular view.
 
 ## Open questions
 - ✅ **Testing strategy** — designed *and* realized: Node-side `Structure` build confirmed
-  (raw/0007) and the agent-side + executor cores are unit-tested (raw/0008). See
-  [[testing-strategy]].
-- Packaging details: peer-dep on `molstar` vs bundle; one component vs hooks-only; the
-  executor's public entry point (it's intentionally not in the molstar-free barrel yet).
-- Pin which Mol\* `5.x` to target.
+  (raw/0007), the agent-side + executor cores are unit-tested (raw/0008), and Plan 3a added
+  preset/XR/SSR coverage (raw/0009). See [[testing-strategy]].
+- ✅ **One component vs hooks-only** — decided & shipped: vdv ships `<MolViewCanvas/>` +
+  `<MolViewProvider>`/`useMolView()` (raw/0009, [[headless-react]]).
+- **Packaging** (the remaining structural decision): peer-dep on `molstar` vs bundle, and
+  the package `exports` map splitting the molstar-free `src/index.ts` from the
+  molstar-dependent `src/browser.ts` (build phase, after Plan 3b). `react`/`react-dom` are
+  already peer deps (raw/0009).
+- Pin which Mol\* `5.x` to target (3a builds against 5.10.1).
 - Server-side vs client-side MVS construction (for the v1.1 `load-scene`).

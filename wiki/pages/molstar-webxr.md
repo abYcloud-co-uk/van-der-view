@@ -3,8 +3,8 @@ title: Mol* WebXR support
 slug: molstar-webxr
 type: entity
 status: stable
-sources: [raw/0001-molstar-research.md, raw/0006-xr-voice-boundary-2026-06-18.md, "https://molstar.org/xr/"]
-updated: 2026-06-18
+sources: [raw/0001-molstar-research.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, "https://molstar.org/xr/"]
+updated: 2026-06-22
 links: [molstar-api, command-schema, project-overview, testing-strategy]
 ---
 
@@ -44,6 +44,16 @@ The stock UI toggle is literally:
 xr.isPresenting.value ? xr.end() : xr.request();
 ```
 So van-der-view's `toggle-xr` command maps directly onto this (see [[command-schema]]).
+
+### van-der-view's XR wrapper (Plan 3a, implemented — src: raw/0009)
+
+`createXrApi(plugin): MolViewXR` (`src/mol/xr.ts`) is the first-class XR state/events
+surface promised above — thin wrappers over `plugin.canvas3d?.xr`
+(`isSupported`/`isPresenting`/`request`/`end` + a change subscription). It is **null-safe
+over `canvas3d?.xr`** because the viewer can be assembled **before `initViewerAsync`**, at
+which point `plugin.canvas3d` doesn't exist yet. Unit-tested with a stub plugin (the real
+device path is manual, Plan 3b). ⚠️ Open: subscribing to live XR state *before*
+`initViewerAsync` (canvas3d is created lazily) — today the wrappers no-op until it exists.
 
 ### Configuration
 

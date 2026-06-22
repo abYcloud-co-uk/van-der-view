@@ -24,8 +24,8 @@ under `wiki/`). Do not duplicate them here.
 
 ## Status
 
-Early implementation — the **agent-side and browser-side cores have both landed**
-(`src/`, all pure-Node unit-tested):
+Early implementation — the **agent-side, browser-side executor, and browser runtime
+cores have all landed** (`src/`):
 
 - **Agent-side** (Plan 1, merged): the command schema types, the v1 command catalog
   (`commands`), and the Anthropic adapter (`tools.anthropic`, `adapters`). Exposed via
@@ -34,11 +34,18 @@ Early implementation — the **agent-side and browser-side cores have both lande
   auth/label), `resolve-structure` (data sourcing), the `ExecutorContext` port
   (`context`), and `createExecutor().dispatch()` (`executor`). Depends on `molstar`;
   intentionally **not** in the agent-side barrel.
+- **Browser runtime core** (Plan 3a, merged — PR #12): the real Mol\* adapter
+  `molstarExecutorContext` (`src/mol/adapter.ts`) behind the port, `createMolView` +
+  XR wrappers (`src/mol/`), and the React mount `<MolViewProvider>`/`useMolView()`/
+  `<MolViewCanvas/>` (`src/react/`), exposed via the molstar-dependent barrel
+  `src/browser.ts`. Off-GPU code (presets, XR wrappers, SSR smoke) is Node-tested (88
+  tests); GPU/plugin-bound code (adapter, `createMolView`, the canvas mount) is
+  typecheck-gated and verified by hand in Plan 3b. v1 schema cut: `highlight.style`
+  deferred to v1.1; `focus.zoomOut` is a numeric factor.
 
-Still later plans (`docs/superpowers/plans/`): the **React mount** + the real
-`PluginContext` → `ExecutorContext` adapter + an SSR smoke + the Vite demo + XR
-(Plan 3), then packaging. Plan 2's deferred items are in that plan's "Handoffs to
-Plan 3" section.
+Next (`docs/superpowers/plans/`): **Plan 3b** — the Vite demo + manual XR / visual
+checklist (tune `focus.zoomOut` magnitude and camera feel by eye), then **packaging**
+(build + the package `exports` split between `src/index.ts` and `src/browser.ts`).
 
 Commands:
 - `pnpm test` — run the Vitest suite (`pnpm test:watch` to watch)

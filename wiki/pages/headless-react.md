@@ -3,8 +3,8 @@ title: Headless Mol* in React (Next.js / Vite / Remix / TanStack)
 slug: headless-react
 type: how-to
 status: stable
-sources: [raw/0001-molstar-research.md, "https://github.com/molstar/molstar/issues/648"]
-updated: 2026-06-18
+sources: [raw/0001-molstar-research.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, "https://github.com/molstar/molstar/issues/648"]
+updated: 2026-06-22
 links: [molstar-api, agent-command-flow, project-overview, testing-strategy]
 ---
 
@@ -57,6 +57,28 @@ export function MolView() {
 See [[molstar-api]] for the post-init control calls. Dynamic `import()` inside
 `useEffect` also keeps molstar out of the server bundle.
 
+### van-der-view's realized React surface (Plan 3a, implemented — src: raw/0009)
+
+The wrapper above is now shipped concretely as the **browser-side barrel `src/browser.ts`**:
+
+- **`<MolViewProvider>`** — holds the `MolViewConfig` (a stable `EMPTY_CONFIG` sentinel
+  by default) and the plugin; `import type` only for `PluginContext` (no static molstar).
+- **`useMolView(): MolView | undefined`** — hands the assembled viewer (`dispatch` + `xr`)
+  to the host's agent loop (see [[agent-command-flow]]).
+- **`<MolViewCanvas/>`** — a **style-forwarding** wrapper: vdv owns the canvas DOM and all
+  of the `dispose()` / dynamic-import / `'use client'` discipline; the **host controls
+  size via CSS** (forwarded `className`/`style`). Its effect lazy-imports the mol layer
+  inside `useEffect`, is keyed on `[plugin]` (re-inits when the plugin prop changes), and
+  `.catch`es mount failures instead of throwing an unhandled rejection.
+
+**SSR-safety is structural, not `'use client'`:** the barrel value-exports the React layer
+but uses **`export type`** for mol-layer types, so importing it pulls no static molstar into
+the value graph. Proven by an SSR `renderToString` smoke ([[testing-strategy]]).
+
+**Dual-mode plugin ownership:** `createMolView({ plugin })` / `<MolViewProvider plugin={…}>`
+**attaches** to a host-owned plugin and never disposes it; with no plugin, vdv
+**creates+owns+disposes** its own ([[agent-command-flow]]).
+
 ### Per-framework notes
 
 | Framework | What to do |
@@ -87,7 +109,12 @@ See [[molstar-api]] for the post-init control calls. Dynamic `import()` inside
 - [[testing-strategy]] — the SSR `renderToString` smoke that verifies this guard
 
 ## Open questions
-- Will van-der-view ship one wrapper component, or just hooks (`useMolstar`) +
-  bring-your-own-canvas?
-- Bundle strategy: peer-dep on `molstar` (consumer installs) vs. bundling.
+- ✅ **One wrapper vs hooks-only** — decided & shipped (Plan 3a): vdv ships a
+  style-forwarding `<MolViewCanvas/>` **plus** `<MolViewProvider>`/`useMolView()`; vdv owns
+  the canvas DOM, the host sizes it with CSS (src: raw/0009).
+- Bundle strategy: peer-dep on `molstar` (consumer installs) vs. bundling. `react`/
+  `react-dom` are now declared **peerDependencies** (`^18 || ^19`); the `molstar` packaging
+  decision is the later packaging phase (src: raw/0009).
 - Verify current Turbopack status against the pinned Next.js version.
+- Real-browser mount of `<MolViewCanvas/>` (paint + resize) is **manual in Plan 3b** — the
+  SSR smoke proves only the server path, not the GPU path (src: raw/0009).

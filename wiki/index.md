@@ -7,7 +7,7 @@ the right page. Schema and the three operations are defined in [CLAUDE.md](CLAUD
 > bridges an AI agent and the Mol\* 3D molecular renderer via a lightweight
 > standardized JSON command schema. See [[project-overview]].
 
-_Last updated: 2026-06-18 · 9 pages · 8 sources_
+_Last updated: 2026-06-22 · 9 pages · 9 sources_
 
 ## Clusters
 
@@ -33,7 +33,7 @@ _Last updated: 2026-06-18 · 9 pages · 8 sources_
 ### Integration
 | Page | Hook |
 |---|---|
-| [[headless-react]] | Mounting Mol\* client-only in Next.js / Vite / Remix / TanStack. `how-to` |
+| [[headless-react]] | Mounting Mol\* client-only (Next/Vite/Remix/TanStack); vdv's shipped `<MolViewProvider>`/`useMolView()`/`<MolViewCanvas/>` + the SSR guard. `how-to` |
 
 ### Reference
 | Page | Hook |
@@ -51,15 +51,18 @@ _Last updated: 2026-06-18 · 9 pages · 8 sources_
 | 0006 | XR in-VR interaction & voice boundary — enter needs a gesture; voice/UX is the host's; expose viewer.xr |
 | 0007 | Node-Structure spike — pure-Node parse + selection→loci works (no WebGL); pnpm @scarf build-gate fix |
 | 0008 | Plan 2 — browser-side executor core implemented & merged (`ExecutorContext` port, input validation, v1 error codes) |
+| 0009 | Plan 3a — browser runtime core merged (real `molstarExecutorContext` adapter, `<MolViewProvider>`/`useMolView()`/`<MolViewCanvas/>` React mount, preset selectors, numeric `focus.zoomOut`, SSR smoke) |
 
 ## Open questions (rollup)
 - ✅ **Selection tests in Node** — resolved: pure-Node `Structure`/loci build confirmed (raw/0007) and the executor + `resolveSelection` are unit-tested (raw/0008, [[testing-strategy]]).
-- **Packaging** — peer-dep on `molstar` vs bundle; one component vs hooks-only; the executor's public entry point (not in the molstar-free barrel yet) ([[project-overview]], [[headless-react]])
-- **Mol\* version** — pin a `5.x` and verify signatures against `.d.ts` ([[molstar-api]]); Plan 2 builds against `5.10`.
-- **Command envelope** — batching/transactions and ack/streaming still open; the **v1 error-code taxonomy is now defined** (raw/0008, [[command-schema]]).
+- ✅ **Plan-3 handoffs** — resolved by Plan 3a (raw/0009): the real `molstarExecutorContext` adapter, the 7 preset selectors, and numeric `focus.zoomOut` all landed; `clearHighlight` is wired in the adapter. Only **`highlight.style`** moved on — to the **v1.1** representation cluster ([[command-schema]], [[agent-command-flow]]). Still future: multi-model selection scoping, host error-code passthrough, XR early-subscribe.
+- ✅ **One component vs hooks-only** — shipped: `<MolViewCanvas/>` + `<MolViewProvider>`/`useMolView()` (raw/0009, [[headless-react]]).
+- **Packaging** — the remaining structural decision: peer-dep on `molstar` vs bundle, and the package `exports` splitting the molstar-free `src/index.ts` from the molstar-dependent `src/browser.ts` (after Plan 3b). `react`/`react-dom` already peer deps ([[project-overview]], [[headless-react]]).
+- **Mol\* version** — pin a `5.x` and verify signatures against `.d.ts` ([[molstar-api]]); Plan 2 + 3a build against `5.10.1`.
+- **Command envelope** — batching/transactions and ack/streaming still open; the **v1 error-code taxonomy is defined** (`unsupported_selection` now reserved-unused) (raw/0008, raw/0009, [[command-schema]]).
 - **`dispatch` input** — `Command` only vs convenience overload for the raw provider block ([[agent-command-flow]])
 - **MVS construction** — server-side Python vs client-side JS builder, for v1.1 `load-scene` ([[project-overview]])
-- **Plan-3 handoffs** — real `PluginContext`→`ExecutorContext` adapter, preset selectors, `clearHighlight`/`style`/`zoomOut`, multi-model selection, host error-code passthrough (raw/0008, [[agent-command-flow]])
+- **Plan 3b (next)** — Vite demo + manual XR / visual checklist; tune `focus.zoomOut` magnitude and camera feel by eye ([[testing-strategy]]).
 
 ## How to grow this wiki
 - `/wiki-ingest <url|file|text>` — add a source, synthesize pages
