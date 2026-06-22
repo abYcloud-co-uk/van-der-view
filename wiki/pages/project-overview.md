@@ -3,7 +3,7 @@ title: Project Overview — van-der-view
 slug: project-overview
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, "user brief 2026-06-18"]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0011-plan3b-demo-merged-verified-2026-06-22.md, "user brief 2026-06-18"]
 updated: 2026-06-22
 links: [command-schema, agent-command-flow, molstar-api, molviewspec, molstar-webxr, headless-react, testing-strategy, molstar-trajectories]
 ---
@@ -54,13 +54,15 @@ live changes in a complex Web 3D molecular view.
   raw Mol\*. Executor is provider-agnostic; adapters are per-provider (v1 = Anthropic,
   OpenAI/Codex placeholder). See [[agent-command-flow]] and [[command-schema]].
 - **v1 commands:** load-structure, highlight, focus, get-scene-context, reset-camera.
-- **Build status (src: raw/0008, raw/0009):** the **agent-side core** (schema + Anthropic
-  adapter, Plan 1), the **browser-side executor core** (`createExecutor().dispatch()` over
-  an `ExecutorContext` port, Plan 2), and the **browser runtime core** (the real
+- **Build status (src: raw/0008, raw/0009, raw/0011):** the **agent-side core** (schema +
+  Anthropic adapter, Plan 1), the **browser-side executor core** (`createExecutor().dispatch()`
+  over an `ExecutorContext` port, Plan 2), the **browser runtime core** (the real
   `molstarExecutorContext` adapter + the `<MolViewProvider>`/`useMolView()`/`<MolViewCanvas/>`
-  React mount + an SSR smoke, **Plan 3a**) are implemented, Node-tested, and merged (88
-  tests). Next is **Plan 3b** — the Vite demo + manual XR / visual checklist (where camera
-  feel, incl. `focus.zoomOut` magnitude, is tuned by eye) — then packaging. See
+  React mount + an SSR smoke, **Plan 3a**), and the **Vite demo** (`examples/demo/`, the manual
+  layer, **Plan 3b**) are all implemented and merged (90 tests). The demo is **GPU-verified**
+  for all non-XR functionality; **WebXR is the one piece still untested** (no headset). So the
+  v1 runtime is complete and visually validated sans XR. Next: **packaging**, then a
+  **trajectory cluster** ([[molstar-trajectories]]) and the **v1.1 representation cluster**. See
   [[headless-react]], [[agent-command-flow]], [[testing-strategy]].
 - **Integration deltas (from the first real target, src: raw/0005):** `load-structure`
   adds an `inline` source and routes all loading through a host `resolveStructure`

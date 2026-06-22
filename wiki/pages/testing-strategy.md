@@ -3,7 +3,7 @@ title: Testing Strategy
 slug: testing-strategy
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0004-testing-strategy-decisions-2026-06-18.md, raw/0007-node-structure-spike-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, "docs/superpowers/specs/2026-06-18-testing-strategy-design.md"]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0004-testing-strategy-decisions-2026-06-18.md, raw/0007-node-structure-spike-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0011-plan3b-demo-merged-verified-2026-06-22.md, "docs/superpowers/specs/2026-06-18-testing-strategy-design.md"]
 updated: 2026-06-22
 links: [agent-command-flow, command-schema, molstar-api, headless-react, molstar-webxr]
 ---
@@ -49,10 +49,17 @@ Node smoke catches the #1 breakage (a server import touching `window`) (src: raw
 Plan 3a's **GPU/plugin-bound code is typecheck-gated, not unit-tested** — the real Mol\*
 adapter (`molstarExecutorContext`), `createMolView`, and the `<MolViewCanvas/>` mount are
 proven by `tsc` + manual run, since exercising them needs a real WebGL context (src:
-raw/0009). They get eyeballed in the demo below (Plan 3b), where `focus.zoomOut`'s
-comfortable magnitude is also tuned.
+raw/0009). They get eyeballed in the demo below (Plan 3b).
 
-A standalone **Vite** app at `examples/demo/`, client-only, **no LLM/chat** (src: raw/0004):
+✅ **Realized & GPU-verified (Plan 3b, src: raw/0011).** The demo is built and merged
+(`examples/demo/`, PR #14) and **manually GPU-verified** (2026-06-22): canvas paint, load
+(1CRN inline + 1HSG pdb, replace-on-load), highlight/clear, focus + the zoomOut slider,
+reset, scene-context, the stepper, paste-`tool_use`, and error surfacing **all confirmed
+working** — so the typecheck-gated 3a render path is now visually validated. ⏸️ **WebXR is
+the one piece still untested** (no headset available); Enter/Exit XR + in-headset behavior
+are deferred until a device is on hand ([[molstar-webxr]]).
+
+A standalone **Vite** app at `examples/demo/`, client-only, **no LLM/chat** (src: raw/0004, raw/0011):
 - **Preset command buttons** → `viewer.dispatch(Command)` directly (F2).
 - **Paste `tool_use` box** → `adapters.anthropic.toCommand` → show normalized
   `Command` → dispatch (eyeball F1 + F2 together with real Claude output).

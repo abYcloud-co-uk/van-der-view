@@ -7,7 +7,7 @@ the right page. Schema and the three operations are defined in [CLAUDE.md](CLAUD
 > bridges an AI agent and the Mol\* 3D molecular renderer via a lightweight
 > standardized JSON command schema. See [[project-overview]].
 
-_Last updated: 2026-06-22 · 10 pages · 10 sources_
+_Last updated: 2026-06-22 · 10 pages · 11 sources_
 
 ## Clusters
 
@@ -54,6 +54,7 @@ _Last updated: 2026-06-22 · 10 pages · 10 sources_
 | 0008 | Plan 2 — browser-side executor core implemented & merged (`ExecutorContext` port, input validation, v1 error codes) |
 | 0009 | Plan 3a — browser runtime core merged (real `molstarExecutorContext` adapter, `<MolViewProvider>`/`useMolView()`/`<MolViewCanvas/>` React mount, preset selectors, numeric `focus.zoomOut`, SSR smoke) |
 | 0010 | Mol\* trajectory loading — source inspection of molstar 5.10.1 (topology+coordinates, `loadTrajectory`, `AnimateModelIndex`; corrects the VR notes' "no atom-count guard" claim) |
+| 0011 | Plan 3b — Vite demo (`examples/demo/`) merged (PR #14) & GPU-verified except WebXR; library fixes `subscribeSupported` + `SceneContext` export |
 
 ## Open questions (rollup)
 - ✅ **Selection tests in Node** — resolved: pure-Node `Structure`/loci build confirmed (raw/0007) and the executor + `resolveSelection` are unit-tested (raw/0008, [[testing-strategy]]).
@@ -65,7 +66,12 @@ _Last updated: 2026-06-22 · 10 pages · 10 sources_
 - **`dispatch` input** — `Command` only vs convenience overload for the raw provider block ([[agent-command-flow]])
 - **MVS construction** — server-side Python vs client-side JS builder, for v1.1 `load-scene` ([[project-overview]])
 - **MD trajectories are out of v1** — loading topology + a coordinate stream (PDB+XTC) and frame playback is a future command cluster wrapping Mol\*'s `loadTrajectory` + `AnimateModelIndex`; the real Mol\* API is now documented (raw/0010, [[molstar-trajectories]]). Open: in-headset playback, a pure-Node coordinate spike, the command envelope.
-- **Plan 3b (next)** — Vite demo + manual XR / visual checklist; tune `focus.zoomOut` magnitude and camera feel by eye ([[testing-strategy]]).
+- ✅ **Plan 3b** — the Vite demo (`examples/demo/`) is merged and **GPU-verified for all
+  non-XR functionality** (raw/0011). ⏸️ **WebXR is the one untested piece** (no headset) —
+  deferred until a device is available ([[testing-strategy]], [[molstar-webxr]]).
+- **Next build direction** — **packaging** (build + `exports` split), a **trajectory + playback
+  command cluster** for MD data ([[molstar-trajectories]]), or the **v1.1 representation
+  cluster**; v1 runtime is otherwise complete ([[project-overview]]).
 
 ## How to grow this wiki
 - `/wiki-ingest <url|file|text>` — add a source, synthesize pages
