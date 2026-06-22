@@ -42,10 +42,18 @@ cores have all landed** (`src/`):
   tests); GPU/plugin-bound code (adapter, `createMolView`, the canvas mount) is
   typecheck-gated and verified by hand in Plan 3b. v1 schema cut: `highlight.style`
   deferred to v1.1; `focus.zoomOut` is a numeric factor.
+- **Vite demo** (Plan 3b, merged — PR #14): a client-only manual-verification app at
+  `examples/demo/` (six panels, no LLM/chat) that drives the real adapter on a GPU;
+  consumes the lib via Vite alias to TS source. Suite now **90 tests** (added
+  `MolViewXR.subscribeSupported`; `src/browser.ts` also re-exports the `SceneContext`
+  type). **GPU-verified** for all non-XR functionality; **WebXR is the one piece still
+  untested** (no headset) and deferred.
 
-Next (`docs/superpowers/plans/`): **Plan 3b** — the Vite demo + manual XR / visual
-checklist (tune `focus.zoomOut` magnitude and camera feel by eye), then **packaging**
-(build + the package `exports` split between `src/index.ts` and `src/browser.ts`).
+So the v1 runtime is complete and visually validated (sans XR). Next
+(`docs/superpowers/plans/`): **packaging** (build + the package `exports` split between
+`src/index.ts` and `src/browser.ts`), and — post-v1 — a **trajectory + playback command
+cluster** for MD data (see `wiki/pages/molstar-trajectories.md`) and the **v1.1
+representation cluster** (`highlight.style` + `color`/`set-representation`/`load-scene`/`toggle-xr`).
 
 Commands:
 - `pnpm test` — run the Vitest suite (`pnpm test:watch` to watch)

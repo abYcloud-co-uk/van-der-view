@@ -3,7 +3,7 @@ title: Mol* WebXR support
 slug: molstar-webxr
 type: entity
 status: stable
-sources: [raw/0001-molstar-research.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, "https://molstar.org/xr/"]
+sources: [raw/0001-molstar-research.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0011-plan3b-demo-merged-verified-2026-06-22.md, "https://molstar.org/xr/"]
 updated: 2026-06-22
 links: [molstar-api, command-schema, project-overview, testing-strategy, molstar-trajectories]
 ---
@@ -49,11 +49,20 @@ So van-der-view's `toggle-xr` command maps directly onto this (see [[command-sch
 
 `createXrApi(plugin): MolViewXR` (`src/mol/xr.ts`) is the first-class XR state/events
 surface promised above — thin wrappers over `plugin.canvas3d?.xr`
-(`isSupported`/`isPresenting`/`request`/`end` + a change subscription). It is **null-safe
+(`isSupported`/`isPresenting`/`request`/`end` + change subscriptions). It is **null-safe
 over `canvas3d?.xr`** because the viewer can be assembled **before `initViewerAsync`**, at
-which point `plugin.canvas3d` doesn't exist yet. Unit-tested with a stub plugin (the real
-device path is manual, Plan 3b). ⚠️ Open: subscribing to live XR state *before*
-`initViewerAsync` (canvas3d is created lazily) — today the wrappers no-op until it exists.
+which point `plugin.canvas3d` doesn't exist yet. Unit-tested with a stub plugin.
+- ⚠️ **`isSupported` is async** — Mol\*'s `xr.isSupported` is a `BehaviorSubject(false)` that
+  flips true only after `navigator.xr.isSessionSupported()` resolves. A one-shot read at mount
+  misses real support; **observe it via `subscribeSupported(cb)`** (added in Plan 3b after the
+  demo's XR button got stuck on "not available" — src: raw/0011). `subscribe(cb)` streams
+  `isPresenting`.
+- ⏸️ **Untested on real hardware.** The demo's XR button works in code, but enter/exit XR and
+  in-headset rendering/animation have **not** been run on a device (no headset available as of
+  2026-06-22) — this is the one Plan-3b verification item still open (src: raw/0011,
+  [[testing-strategy]]).
+- Open: subscribing to live XR state *before* `initViewerAsync` (canvas3d is created lazily) —
+  today the wrappers no-op until it exists.
 
 ### Configuration
 
