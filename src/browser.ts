@@ -8,3 +8,6 @@ export { MolViewCanvas } from './react/canvas';
 export { useMolView } from './react/use-mol-view';
 export type { MolView, CreateMolViewOptions } from './mol/create-mol-view';
 export type { MolViewXR } from './mol/xr';
+// The shape get-scene-context / MolView.getSceneContext returns, so consumers can type
+// the readout instead of falling back to `unknown`. Type-only — no runtime molstar.
+export type { SceneContext, FocusOptions } from './context';
