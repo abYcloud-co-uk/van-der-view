@@ -1,6 +1,7 @@
 import { MolViewCanvas } from 'van-der-view/browser';
 import { LoadPanel } from './panels/LoadPanel';
 import { CommandsPanel } from './panels/CommandsPanel';
+import { SceneContextPanel } from './panels/SceneContextPanel';
 
 export function App() {
   return (
@@ -10,6 +11,7 @@ export function App() {
         <h1 style={{ fontSize: 16, marginTop: 0 }}>van-der-view demo</h1>
         <LoadPanel />
         <CommandsPanel />
+        <SceneContextPanel />
         {/* PANELS */}
       </div>
     </div>
