@@ -3,6 +3,7 @@ import { LoadPanel } from './panels/LoadPanel';
 import { CommandsPanel } from './panels/CommandsPanel';
 import { SceneContextPanel } from './panels/SceneContextPanel';
 import { StepperPanel } from './panels/StepperPanel';
+import { PasteToolUsePanel } from './panels/PasteToolUsePanel';
 
 export function App() {
   return (
@@ -14,6 +15,7 @@ export function App() {
         <CommandsPanel />
         <SceneContextPanel />
         <StepperPanel />
+        <PasteToolUsePanel />
         {/* PANELS */}
       </div>
     </div>
