@@ -322,7 +322,7 @@ describe('createExecutor — trajectory cluster', () => {
     const exec = createExecutor(fakeContext()); // default scene has no trajectory
     expect(errorOf(await exec.dispatch({ name: 'play-trajectory', input: {} })).code).toBe('no_trajectory');
     expect(errorOf(await exec.dispatch({ name: 'stop-trajectory', input: {} })).code).toBe('no_trajectory');
-    expect(errorOf(await exec.dispatch({ name: 'set-frame', input: { index: 0 } })).code).toBe('no_trajectory');
+    expect(errorOf(await exec.dispatch({ name: 'set-frame', input: { index: 999 } })).code).toBe('no_trajectory');
   });
 
   it('plays with fps/loop forwarded to the port', async () => {
@@ -366,5 +366,6 @@ describe('createExecutor — trajectory cluster', () => {
     const ctx = fakeContext({ getSceneContext: () => trajectoryScene(309) });
     const res = await createExecutor(ctx).dispatch({ name: 'set-frame', input: { index: 1.5 } });
     expect(errorOf(res).code).toBe('invalid_input');
+    expect(ctx.setFrame).not.toHaveBeenCalled();
   });
 });
