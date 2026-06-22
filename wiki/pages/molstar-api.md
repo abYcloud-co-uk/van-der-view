@@ -3,8 +3,8 @@ title: Mol* Programmatic API (headless)
 slug: molstar-api
 type: entity
 status: stable
-sources: [raw/0001-molstar-research.md, raw/0007-node-structure-spike-2026-06-18.md, "https://molstar.org/docs/plugin/instance/"]
-updated: 2026-06-18
+sources: [raw/0001-molstar-research.md, raw/0007-node-structure-spike-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, "https://molstar.org/docs/plugin/instance/"]
+updated: 2026-06-22
 links: [molviewspec, molstar-webxr, command-schema, agent-command-flow, headless-react, glossary]
 ---
 
@@ -55,6 +55,12 @@ await plugin.builders.structure.hierarchy.applyPreset(traj, 'default');
 Formats: `mmcif`, `pdb`, `sdf`, `mol2`, `gro`, `xyz`. Convenience:
 `loadStructureFromUrl(plugin, url, format, isBinary)` (src: raw/0001).
 
+⚠️ **Replace-on-load:** for a single-structure viewer, `await plugin.clear()` **before**
+loading. The hierarchy *appends* otherwise, and code that reads `…hierarchy.current.
+structures[0]` would keep seeing the first structure while the new one is silently ignored.
+van-der-view's adapter does `await plugin.clear()` at the top of `loadStructure`
+(src: raw/0009). Inline data path: `plugin.builders.data.rawData({ data })` (src: raw/0009).
+
 ### Select residues / chains (MolScript)
 
 ```ts
@@ -67,6 +73,21 @@ const loci = StructureSelection.toLociWithSourceUnits(sel); // → StructureElem
 ⚠️ `inRange` lives under `core.rel`; `auth_seq_id` (PDB numbering) ≠
 `label_seq_id` (entity numbering) — choose deliberately (src: raw/0001). See
 [[glossary]] for *loci*.
+
+### Preset selections via `StructureSelectionQueries` (pure-Node) — verified
+
+van-der-view's 7 named presets do **not** hand-roll MolScript — they reuse Mol\*'s own
+built-in queries, which run in **pure Node** (no plugin/WebGL), verified against 5.10.1
+(src: raw/0009):
+
+```ts
+import { StructureSelectionQueries, StructureSelection } from 'molstar/lib/mol-model/structure/query';
+import { QueryContext } from 'molstar/lib/mol-model/structure';
+const sel  = StructureSelectionQueries.polymer.query(new QueryContext(structure));
+const loci = StructureSelection.toLociWithSourceUnits(sel);   // → StructureElement.Loci
+```
+Names used: `all`, `polymer`, `protein`, `nucleic`, `ligand`, `ion`, `water`. A query that
+matches nothing yields an **empty** loci (the executor maps that to `empty_selection`).
 
 ### Pure-Node parse + select (no plugin, no WebGL) — verified
 
@@ -119,12 +140,35 @@ Recolor existing: `plugin.managers.structure.component.updateRepresentationsThem
 ### Camera focus / zoom
 
 ```ts
-plugin.managers.camera.focusLoci(loci); // { minRadius, extraRadius, durationMs, zoomOut, ... }
+plugin.managers.camera.focusLoci(loci); // { minRadius, extraRadius, durationMs, ... }
 plugin.managers.camera.reset();
 ```
 ⚠️ `PluginCommands.Camera.Focus` is **sphere-based** (`{ center, radius }`), not
 loci-based; for loci use `managers.camera.focusLoci`. `managers.structure.focus`
 tracks the UI "focused" entry but does **not** move the camera (src: raw/0001).
+
+van-der-view's `focus.zoomOut` factor maps onto `focusLoci`'s **`extraRadius`** option (not
+a `zoomOut` field): `extraRadius = (zoomOut − 1) × loci.structure.boundary.sphere.radius`
+widens the framed sphere proportionally to the structure's own size, so the pull-back reads
+the same at any scale; `zoomOut ≤ 1`/omitted leaves the default tight fit. The framed
+sphere's radius comes from `loci.structure.boundary.sphere.radius` (src: raw/0009). The
+exact comfortable factor is tuned by eye in the Plan-3b demo ([[testing-strategy]]).
+
+### Enumerate chains of a `Structure` (for `get-scene-context`)
+
+Walk `structure.units`; per unit read the chain id off a `StructureElement.Location`. Use
+**`auth_asym_id` for atomic units, `label_asym_id` for coarse units** (auth numbering isn't
+defined for coarse models). A `Structure` is immutable, so this result can be memoized in a
+`WeakMap<Structure, string[]>` — `get-scene-context` is hot (src: raw/0009):
+
+```ts
+import { StructureElement, StructureProperties, Unit } from 'molstar/lib/mol-model/structure';
+const loc = StructureElement.Location.create(structure);
+loc.unit = unit; loc.element = unit.elements[0];
+const id = Unit.isAtomic(unit)
+  ? StructureProperties.chain.auth_asym_id(loc)
+  : StructureProperties.chain.label_asym_id(loc);
+```
 
 ### Loading MVS
 
@@ -149,4 +193,10 @@ tracks the UI "focused" entry but does **not** move the camera (src: raw/0001).
 
 ## Open questions
 - Pin which Mol* `5.x` we target; verify signatures against `node_modules/molstar/lib/*.d.ts`.
+  Plan 3a built/typechecked the adapter against **5.10.1** — `plugin.clear()`,
+  `lociHighlights.highlightOnly({loci})`, `camera.focusLoci(loci, {durationMs, extraRadius})`,
+  `loci.structure.boundary.sphere.radius`, `Unit.isAtomic`, and the
+  `StructureSelectionQueries.*` presets are confirmed there (src: raw/0009).
 - `Structure.toStructureElementLoci` and `colorParams:{value}` confirmed via docs, not line reads.
+- Real GPU-side rendering of these adapter calls is verified by hand in **Plan 3b** (the
+  adapter/`createMolView` are typecheck-gated, not unit-tested — src: raw/0009).
