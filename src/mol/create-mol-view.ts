@@ -44,13 +44,20 @@ export async function createMolView(opts: CreateMolViewOptions): Promise<MolView
       throw new Error('createMolView requires { canvas, container } unless an initialized plugin is provided.');
     }
     plugin = new PluginContext(DefaultPluginSpec());
-    await plugin.init();
-    await plugin.initViewerAsync(opts.canvas, opts.container);
+    try {
+      await plugin.init();
+      const ok = await plugin.initViewerAsync(opts.canvas, opts.container);
+      if (!ok) throw new Error('Mol* initViewerAsync failed to set up a WebGL context (no canvas3d).');
+    } catch (err) {
+      plugin.dispose();
+      throw err;
+    }
   }
 
   const ctx = molstarExecutorContext(plugin);
   const { dispatch } = createExecutor(ctx, { resolveStructure: opts.resolveStructure });
   const xr = createXrApi(plugin);
+  // Snapshot the narrowed (non-undefined) plugin; the returned closures must close over this const, not the reassignable `let`.
   const bound = plugin;
 
   return {
