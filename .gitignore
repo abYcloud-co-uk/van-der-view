@@ -1,2 +1,4 @@
 node_modules/
 dist/
+MD_Data
+.DS_Store
