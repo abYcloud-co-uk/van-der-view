@@ -2,6 +2,7 @@ import { MolViewCanvas } from 'van-der-view/browser';
 import { LoadPanel } from './panels/LoadPanel';
 import { CommandsPanel } from './panels/CommandsPanel';
 import { SceneContextPanel } from './panels/SceneContextPanel';
+import { StepperPanel } from './panels/StepperPanel';
 
 export function App() {
   return (
@@ -12,6 +13,7 @@ export function App() {
         <LoadPanel />
         <CommandsPanel />
         <SceneContextPanel />
+        <StepperPanel />
         {/* PANELS */}
       </div>
     </div>
