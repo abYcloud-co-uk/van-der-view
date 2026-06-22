@@ -1,5 +1,6 @@
 import type { Structure, StructureElement } from 'molstar/lib/mol-model/structure';
 import type { ResolvedStructure } from './resolve-structure';
+import type { ResolvedTrajectory } from './resolve-coordinates';
 
 /** Camera focus options (subset surfaced to the agent). */
 export interface FocusOptions {
@@ -12,6 +13,8 @@ export interface FocusOptions {
 export interface SceneContext {
   loaded: boolean;
   structures: { chains: string[] }[];
+  /** Present only when a trajectory is loaded (the single read-model for playback state). */
+  trajectory?: { frameCount: number; currentFrame: number; isPlaying: boolean };
 }
 
 /**
@@ -26,4 +29,8 @@ export interface ExecutorContext {
   focus(loci: StructureElement.Loci, options?: FocusOptions): void;
   resetCamera(): void;
   getSceneContext(): SceneContext;
+  loadTrajectory(resolved: ResolvedTrajectory): Promise<void>;
+  playTrajectory(options?: { fps?: number; loop?: boolean }): void;
+  stopTrajectory(): void;
+  setFrame(index: number): void;
 }

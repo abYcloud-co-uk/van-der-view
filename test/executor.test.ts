@@ -19,6 +19,10 @@ function fakeContext(overrides: Partial<ExecutorContext> = {}) {
     focus: vi.fn((_loci: SE.Loci) => {}),
     resetCamera: vi.fn(),
     getSceneContext: () => scene,
+    loadTrajectory: vi.fn(async () => {}),
+    playTrajectory: vi.fn(),
+    stopTrajectory: vi.fn(),
+    setFrame: vi.fn(),
     ...overrides,
   };
   return ctx;

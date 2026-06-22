@@ -9,6 +9,8 @@ export type ErrorCode =
   | 'invalid_selection'
   | 'unsupported_selection' // reserved; retained for API compatibility (no longer thrown in v1)
   | 'no_structure'
+  | 'no_trajectory'
+  | 'trajectory_mismatch'
   | 'empty_selection'
   | 'unknown_command'
   | 'internal_error';
