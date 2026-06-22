@@ -1,5 +1,6 @@
 import { MolViewCanvas } from 'van-der-view/browser';
 import { LoadPanel } from './panels/LoadPanel';
+import { CommandsPanel } from './panels/CommandsPanel';
 
 export function App() {
   return (
@@ -8,6 +9,7 @@ export function App() {
       <div style={{ width: 380, overflowY: 'auto', padding: 16, background: '#181818', borderLeft: '1px solid #333' }}>
         <h1 style={{ fontSize: 16, marginTop: 0 }}>van-der-view demo</h1>
         <LoadPanel />
+        <CommandsPanel />
         {/* PANELS */}
       </div>
     </div>
