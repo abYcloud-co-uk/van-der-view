@@ -4,6 +4,7 @@ import { CommandsPanel } from './panels/CommandsPanel';
 import { SceneContextPanel } from './panels/SceneContextPanel';
 import { StepperPanel } from './panels/StepperPanel';
 import { PasteToolUsePanel } from './panels/PasteToolUsePanel';
+import { XrPanel } from './panels/XrPanel';
 
 export function App() {
   return (
@@ -16,6 +17,7 @@ export function App() {
         <SceneContextPanel />
         <StepperPanel />
         <PasteToolUsePanel />
+        <XrPanel />
         {/* PANELS */}
       </div>
     </div>
