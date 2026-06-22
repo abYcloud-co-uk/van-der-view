@@ -16,6 +16,9 @@ Open the printed URL. The left pane is the Mol\* canvas; the right column is the
 1. **Canvas paints** — left pane is a non-zero, dark 3D viewport.
 2. **Load** — "Load 1CRN (inline)" → crambin renders (cartoon). "Load 1HSG (pdb)" →
    the scene is **replaced** (1CRN gone, protease + ligand shown). Confirms `clear()`-on-load.
+   _Note:_ 1CRN is bundled (offline), but **1HSG is fetched live from RCSB**
+   (`files.rcsb.org`, cross-origin) — if RCSB is unreachable or blocks CORS for your origin,
+   that button surfaces a network error instead of the structure; 1CRN still works offline.
 3. **Highlight** — "Highlight chain A" shows a transient highlight; "Highlight ligand"
    (after loading 1HSG) highlights the ligand; "Clear highlight" removes it.
 4. **Focus + zoomOut** — drag the **zoomOut** slider 1 → 4 and click "Focus chain A" at a

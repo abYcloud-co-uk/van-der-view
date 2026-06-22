@@ -5,12 +5,21 @@ import { Panel } from '../ui';
 export function XrPanel() {
   const viewer = useMolView();
   const [presenting, setPresenting] = useState(false);
-  const supported = viewer?.xr.isSupported() ?? false;
+  // `supported` lives in state and is driven by subscribeSupported: Mol*'s xr.isSupported
+  // starts false and flips true only after the async WebXR probe resolves, so a one-shot
+  // read at render would leave the panel stuck on "not available" on a real headset.
+  const [supported, setSupported] = useState(false);
 
   useEffect(() => {
     if (!viewer) return;
     setPresenting(viewer.xr.isPresenting());
-    return viewer.xr.subscribe(setPresenting);
+    setSupported(viewer.xr.isSupported());
+    const offPresenting = viewer.xr.subscribe(setPresenting);
+    const offSupported = viewer.xr.subscribeSupported(setSupported);
+    return () => {
+      offPresenting();
+      offSupported();
+    };
   }, [viewer]);
 
   return (

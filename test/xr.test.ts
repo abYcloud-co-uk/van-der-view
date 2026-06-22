@@ -3,20 +3,28 @@ import { createXrApi } from '../src/mol/xr';
 
 /** A stub canvas3d.xr with controllable BehaviorSubject-like state. */
 function fakeXr(supported: boolean, presenting: boolean) {
-  const subs = new Set<(b: boolean) => void>();
+  const presentSubs = new Set<(b: boolean) => void>();
+  const supportSubs = new Set<(b: boolean) => void>();
   return {
-    isSupported: { value: supported, subscribe: () => ({ unsubscribe() {} }) },
+    isSupported: {
+      value: supported,
+      subscribe: (cb: (b: boolean) => void) => {
+        supportSubs.add(cb);
+        return { unsubscribe: () => supportSubs.delete(cb) };
+      },
+    },
     isPresenting: {
       value: presenting,
       subscribe: (cb: (b: boolean) => void) => {
-        subs.add(cb);
-        return { unsubscribe: () => subs.delete(cb) };
+        presentSubs.add(cb);
+        return { unsubscribe: () => presentSubs.delete(cb) };
       },
     },
     request: vi.fn(async () => {}),
     end: vi.fn(async () => {}),
     requestFailed: { subscribe: () => ({ unsubscribe() {} }) },
-    _fire: (b: boolean) => subs.forEach((cb) => cb(b)),
+    _fire: (b: boolean) => presentSubs.forEach((cb) => cb(b)),
+    _fireSupported: (b: boolean) => supportSubs.forEach((cb) => cb(b)),
   };
 }
 
@@ -32,6 +40,10 @@ describe('createXrApi — no canvas3d yet', () => {
   });
   it('subscribe returns a no-op unsubscribe', () => {
     const off = xr.subscribe(() => {});
+    expect(() => off()).not.toThrow();
+  });
+  it('subscribeSupported returns a no-op unsubscribe', () => {
+    const off = xr.subscribeSupported(() => {});
     expect(() => off()).not.toThrow();
   });
 });
@@ -53,6 +65,17 @@ describe('createXrApi — with canvas3d.xr', () => {
     x._fire(true);
     off();
     x._fire(false); // ignored after unsubscribe
+    expect(seen).toEqual([true]);
+  });
+
+  it('streams isSupported via subscribeSupported and unsubscribes', () => {
+    const x = fakeXr(false, false); // support starts false; the async probe flips it later
+    const xr = createXrApi({ canvas3d: { xr: x } } as any);
+    const seen: boolean[] = [];
+    const off = xr.subscribeSupported((b) => seen.push(b));
+    x._fireSupported(true); // WebXR probe resolves → supported flips true
+    off();
+    x._fireSupported(false); // ignored after unsubscribe
     expect(seen).toEqual([true]);
   });
 });

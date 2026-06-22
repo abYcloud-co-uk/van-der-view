@@ -27,7 +27,12 @@ export function StepperPanel() {
   // the current `viewer`/`pos`. Cheap for a single-key demo handler.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') void next();
+      if (e.key !== 'Enter' || e.isComposing) return; // ignore IME composition commits
+      // Don't hijack Enter while the user is typing in a field (e.g. the paste-box
+      // textarea, where Enter inserts a newline) — only step when focus is elsewhere.
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      void next();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
