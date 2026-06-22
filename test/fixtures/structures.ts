@@ -4,7 +4,7 @@ import { trajectoryFromPDB } from 'molstar/lib/mol-model-formats/structure/pdb';
 import { CIF } from 'molstar/lib/mol-io/reader/cif';
 import { trajectoryFromMmCIF } from 'molstar/lib/mol-model-formats/structure/mmcif';
 import { Structure } from 'molstar/lib/mol-model/structure';
-import type { Trajectory } from 'molstar/lib/mol-model/structure';
+import type { Trajectory, Model } from 'molstar/lib/mol-model/structure';
 
 /** 10 atoms; chain A (8 atoms, residues GLY1/ALA2/GLY3), chain B (2 atoms, GLY1). */
 export const PDB_TINY = `HEADER    SPIKE
@@ -50,12 +50,17 @@ async function modelFromTrajectory(traj: Trajectory) {
   return Task.is(frame) ? await frame.run() : frame;
 }
 
-/** Build a Structure from PDB text in pure Node (no plugin/canvas/WebGL). */
-export async function buildStructureFromPDB(pdb: string): Promise<Structure> {
+/** Build a single Model from PDB text in pure Node (the frame-0 model of the trajectory). */
+export async function buildModelFromPDB(pdb: string): Promise<Model> {
   const parsed = await parsePDB(pdb, 'fixture').run();
   if (parsed.isError) throw new Error(`PDB parse failed: ${parsed.message}`);
   const traj = await trajectoryFromPDB(parsed.result).run();
-  return Structure.ofModel(await modelFromTrajectory(traj)); // sync, no RuntimeContext
+  return modelFromTrajectory(traj);
+}
+
+/** Build a Structure from PDB text in pure Node (no plugin/canvas/WebGL). */
+export async function buildStructureFromPDB(pdb: string): Promise<Structure> {
+  return Structure.ofModel(await buildModelFromPDB(pdb)); // sync, no RuntimeContext
 }
 
 /**
