@@ -95,13 +95,23 @@ describe('createExecutor — highlight/focus', () => {
     expect(errorOf(res).code).toBe('no_structure');
   });
 
-  it('surfaces unsupported_selection from preset selectors', async () => {
+  it('resolves a supported preset selection via the port', async () => {
     const ctx = fakeContext();
     const res = await createExecutor(ctx).dispatch({
       name: 'highlight',
-      input: { selection: { preset: 'ligand' } },
+      input: { selection: { preset: 'protein' } },
     });
-    expect(errorOf(res).code).toBe('unsupported_selection');
+    expect(res.ok).toBe(true);
+    expect(ctx.highlight).toHaveBeenCalledOnce();
+  });
+
+  it('returns empty_selection for a preset that matches nothing', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'highlight',
+      input: { selection: { preset: 'ligand' } }, // PDB_TINY has no ligand
+    });
+    expect(errorOf(res).code).toBe('empty_selection');
   });
 
   it('forwards focus.zoomOut as a boolean focus option', async () => {
