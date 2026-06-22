@@ -1,0 +1,125 @@
+---
+title: Mol* MD Trajectories (topology + coordinates, playback)
+slug: molstar-trajectories
+type: how-to
+status: stable
+sources: [raw/0010-molstar-trajectory-loading-2026-06-22.md, "https://molstar.org/docs/plugin/file-formats/"]
+updated: 2026-06-22
+links: [molstar-api, command-schema, molstar-webxr, project-overview]
+---
+
+# Mol* MD Trajectories (topology + coordinates, playback)
+
+> How Mol\* loads an MD trajectory — a **topology/model + a coordinate stream** (e.g. a
+> PDB + an XTC) — and animates frames. Distinct from loading a single static structure
+> ([[molstar-api]]). Verified against molstar **5.10.1** source (src: raw/0010).
+
+## Key facts
+
+- Mol\* parses **XTC, TRR, DCD, NCTRAJ** (binary) and **LAMMPSTRAJ** (text) coordinate
+  streams **natively — no conversion** (src: raw/0010). But a coordinate file carries only
+  **per-frame XYZ**; it must be paired with a topology.
+- A topology comes from a **self-contained model format** (`mmcif`/`pdb`/`gro`/`xyz`/…) or a
+  **topology-only format** (`psf`/`prmtop`/`top`).
+- ⚠️ **`plugin.builders.structure.parseTrajectory(data, format)` cannot do this.** It only
+  accepts a self-contained `BuiltInTrajectoryFormat` and has no coordinate-insertion method
+  (src: raw/0010). This is the builder van-der-view's `load-structure` uses — so **PDB+XTC is
+  outside v1** ([[command-schema]]).
+- The one-call path is **`loadTrajectory(plugin, params)`** from
+  `molstar/lib/extensions/plugin/loaders` — takes a bare `PluginContext`, so it works from a
+  headless plugin (src: raw/0010).
+- ✅ **Atom counts ARE validated** in 5.10.1: a topology/coordinate count mismatch **throws**
+  `Frame element count mismatch, got X but expected Y` (not a silent corruption) (src: raw/0010).
+
+## Details
+
+### Two input categories
+
+| Category | Carries | Formats | Transform → state object |
+|---|---|---|---|
+| **Self-contained model/trajectory** | atoms + bonds (+ embedded frames) | `mmcif`, `pdb`/pdbqt/pqr, `gro`, `xyz`, `mol`/`sdf`/`mol2`, `cube`, lammps | `TrajectoryFrom*` → `Molecule.Trajectory` |
+| **Coordinate stream** | per-frame XYZ only | `xtc`, `trr`, `dcd`, `nctraj` (binary), `lammpstrj` (text) | `CoordinatesFrom*` → `Molecule.Coordinates` |
+| **Topology-only** | atoms + bonds, no coords | `psf`, `prmtop`, `top` (text) | `TopologyFrom*` → `Molecule.Topology` |
+
+(src: raw/0010 — coordinates.d.ts / topology.d.ts / model.d.ts). Multi-model PDB/mmCIF are
+*already* trajectories via `TrajectoryFromMmCif/PDB`; XTC/TRR/DCD/NCTRAJ are streams paired
+with a topology.
+
+### The transform chain (what `loadTrajectory` builds)
+
+```
+model/topology  ─┐
+                 ├─▶ TrajectoryFromModelAndCoordinates {modelRef, coordinatesRef} ─▶ Molecule.Trajectory
+coordinates  ────┘                                                                        │
+                                              ModelFromTrajectory {modelIndex} ◀──────────┘ ─▶ Molecule.Model
+                                              StructureFromModel ─▶ Molecule.Structure ─▶ representation
+```
+`TrajectoryFromModelAndCoordinates` fuses a model + coordinates; `ModelFromTrajectory
+{ modelIndex }` selects the displayed frame (src: raw/0010, model.d.ts:69-112).
+
+### The high-level helper
+
+```ts
+import { loadTrajectory } from 'molstar/lib/extensions/plugin/loaders';
+
+await loadTrajectory(plugin, {
+  model:       { kind: 'model-url',       url: '5GGS_nowat.pdb', format: 'pdb' },
+  coordinates: { kind: 'coordinates-url', url: '5GGS_nowat.xtc', format: 'xtc', isBinary: true },
+  preset: 'default',   // single animatable structure bound to the trajectory
+});
+```
+`model.kind` ∈ `model-url | model-data | topology-url | topology-data`;
+`coordinates.kind` ∈ `coordinates-url | coordinates-data`; coordinate `format` ∈
+`xtc|trr|dcd|nctraj` with `isBinary: true` (src: raw/0010, `LoadTrajectoryParams`).
+- `preset: 'default'` = one structure you can animate. `preset: 'all-models'` overlays **all**
+  frames at once (looks like many overlapping copies) — wrong for a single-complex MD movie.
+- Binary coordinate streams **must be a URL or `coordinates-data` bytes** — they can't be
+  inlined as text the way a PDB string can (src: raw/0010).
+
+### Playback / animation
+
+Built-in animation **`AnimateModelIndex`** ("Animate Trajectory",
+`mol-plugin-state/animation/built-in/model-index`) steps the model index over time:
+```ts
+import { AnimateModelIndex } from 'molstar/lib/mol-plugin-state/animation/built-in/model-index';
+plugin.managers.animation.play(AnimateModelIndex, {
+  mode:     { name: 'loop', params: { direction: 'forward' } }, // | 'palindrome' | 'once'
+  duration: { name: 'computed', params: { targetFps: 30 } },    // | 'fixed'{durationInS} | 'sequential'{maxFps}
+});
+// stop: plugin.managers.animation.stop();
+```
+Manual single-frame stepping = update the `ModelFromTrajectory` transform's `{ modelIndex }`.
+Animation needs the render loop (`canvas3d`), so it requires a mounted viewer; the *loading*
+(state building) is headless (src: raw/0010).
+
+### Pre-flight: topology must match coordinates
+
+Counts are checked per frame and a mismatch **throws** (src: raw/0010), so a wrong pairing
+fails loudly. Ordering still must correspond — coordinates bind positionally to topology atoms.
+For `MD_Data`, use the protein-only `*_nowat.pdb` + `*_nowat.xtc` (same OpenMM atom set:
+5GGS 8316, 1N8Z 15653); don't pair a stripped topology with a full-system trajectory.
+
+## Relevance to van-der-view
+
+- v1 `load-structure` loads **single static structures** only (`parseTrajectory` +
+  `applyPreset`); it **cannot** load topology+coordinates and there is **no trajectory
+  playback command** ([[command-schema]]).
+- Supporting MD movies (the `MD_Data` use case) is a **future command cluster**: a load path
+  wrapping `loadTrajectory(plugin, {model, coordinates, preset:'default'})` + a play/seek
+  command over `AnimateModelIndex` / `modelIndex`. Flagged here, not yet designed.
+- In VR, in-headset trajectory *animation* is the open question ([[molstar-webxr]]).
+
+## See also
+- [[molstar-api]] — single-structure loading, selection, camera (the static path)
+- [[command-schema]] — the v1 command set this capability would extend
+- [[molstar-webxr]] — XR, where in-headset frame playback is unverified
+- [[project-overview]] — where a trajectory cluster sits on the roadmap
+
+## Open questions
+- **In-headset trajectory playback** — does `AnimateModelIndex` animate inside an immersive XR
+  session? Unverified ([[molstar-webxr]]); test empirically.
+- **Headless coordinate parse in Node** — the XTC parser is in `mol-io` (pure), but binding +
+  stepping go through plugin state/animation; a pure-Node coordinate→loci spike (like the
+  static one in [[molstar-api]]) is not yet done.
+- **Trajectory command design** — load envelope (model+coordinates+preset), play/pause/seek,
+  and how a `Selection` scopes across frames — all open for the future cluster.

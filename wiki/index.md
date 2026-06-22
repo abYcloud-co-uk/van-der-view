@@ -7,7 +7,7 @@ the right page. Schema and the three operations are defined in [CLAUDE.md](CLAUD
 > bridges an AI agent and the Mol\* 3D molecular renderer via a lightweight
 > standardized JSON command schema. See [[project-overview]].
 
-_Last updated: 2026-06-22 · 9 pages · 9 sources_
+_Last updated: 2026-06-22 · 10 pages · 10 sources_
 
 ## Clusters
 
@@ -28,6 +28,7 @@ _Last updated: 2026-06-22 · 9 pages · 9 sources_
 | Page | Hook |
 |---|---|
 | [[molstar-api]] | Headless `PluginContext`, managers, MolScript selection, camera focus. `entity` |
+| [[molstar-trajectories]] | Loading MD trajectories (topology + XTC/TRR/DCD coords) via `loadTrajectory` + frame playback; the v1 gap. `how-to` `stable` |
 | [[molstar-webxr]] | WebXR is native (`canvas3d.xr`) since v5.0.0 — incl. the user-gesture rule. `entity` |
 
 ### Integration
@@ -52,6 +53,7 @@ _Last updated: 2026-06-22 · 9 pages · 9 sources_
 | 0007 | Node-Structure spike — pure-Node parse + selection→loci works (no WebGL); pnpm @scarf build-gate fix |
 | 0008 | Plan 2 — browser-side executor core implemented & merged (`ExecutorContext` port, input validation, v1 error codes) |
 | 0009 | Plan 3a — browser runtime core merged (real `molstarExecutorContext` adapter, `<MolViewProvider>`/`useMolView()`/`<MolViewCanvas/>` React mount, preset selectors, numeric `focus.zoomOut`, SSR smoke) |
+| 0010 | Mol\* trajectory loading — source inspection of molstar 5.10.1 (topology+coordinates, `loadTrajectory`, `AnimateModelIndex`; corrects the VR notes' "no atom-count guard" claim) |
 
 ## Open questions (rollup)
 - ✅ **Selection tests in Node** — resolved: pure-Node `Structure`/loci build confirmed (raw/0007) and the executor + `resolveSelection` are unit-tested (raw/0008, [[testing-strategy]]).
@@ -62,6 +64,7 @@ _Last updated: 2026-06-22 · 9 pages · 9 sources_
 - **Command envelope** — batching/transactions and ack/streaming still open; the **v1 error-code taxonomy is defined** (`unsupported_selection` now reserved-unused) (raw/0008, raw/0009, [[command-schema]]).
 - **`dispatch` input** — `Command` only vs convenience overload for the raw provider block ([[agent-command-flow]])
 - **MVS construction** — server-side Python vs client-side JS builder, for v1.1 `load-scene` ([[project-overview]])
+- **MD trajectories are out of v1** — loading topology + a coordinate stream (PDB+XTC) and frame playback is a future command cluster wrapping Mol\*'s `loadTrajectory` + `AnimateModelIndex`; the real Mol\* API is now documented (raw/0010, [[molstar-trajectories]]). Open: in-headset playback, a pure-Node coordinate spike, the command envelope.
 - **Plan 3b (next)** — Vite demo + manual XR / visual checklist; tune `focus.zoomOut` magnitude and camera feel by eye ([[testing-strategy]]).
 
 ## How to grow this wiki

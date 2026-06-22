@@ -5,7 +5,7 @@ type: entity
 status: stable
 sources: [raw/0001-molstar-research.md, raw/0007-node-structure-spike-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, "https://molstar.org/docs/plugin/instance/"]
 updated: 2026-06-22
-links: [molviewspec, molstar-webxr, command-schema, agent-command-flow, headless-react, glossary]
+links: [molviewspec, molstar-webxr, command-schema, agent-command-flow, headless-react, glossary, molstar-trajectories]
 ---
 
 # Mol* Programmatic API (headless)
@@ -60,6 +60,10 @@ loading. The hierarchy *appends* otherwise, and code that reads `…hierarchy.cu
 structures[0]` would keep seeing the first structure while the new one is silently ignored.
 van-der-view's adapter does `await plugin.clear()` at the top of `loadStructure`
 (src: raw/0009). Inline data path: `plugin.builders.data.rawData({ data })` (src: raw/0009).
+
+> This `parseTrajectory` path handles **self-contained** formats only (a single static
+> structure, or a multi-model file). Loading a **topology + a separate coordinate stream**
+> (PDB+XTC and other MD trajectories) takes a different API — see [[molstar-trajectories]].
 
 ### Select residues / chains (MolScript)
 
@@ -190,6 +194,7 @@ const id = Unit.isAtomic(unit)
 - [[command-schema]] — which van-der-view commands map to which call here
 - [[agent-command-flow]] — the executor that invokes these calls
 - [[headless-react]] — mounting this in React without SSR breakage
+- [[molstar-trajectories]] — loading topology + coordinate streams (MD trajectories) + playback
 
 ## Open questions
 - Pin which Mol* `5.x` we target; verify signatures against `node_modules/molstar/lib/*.d.ts`.

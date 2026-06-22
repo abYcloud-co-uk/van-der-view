@@ -5,7 +5,7 @@ type: decision
 status: stable
 sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md]
 updated: 2026-06-22
-links: [agent-command-flow, molviewspec, molstar-api, molstar-webxr, project-overview]
+links: [agent-command-flow, molviewspec, molstar-api, molstar-webxr, project-overview, molstar-trajectories]
 ---
 
 # Agent Command Schema (van-der-view contract)
@@ -131,10 +131,15 @@ type ResolveStructure = (input: LoadInput) => Promise<{ data?:string; url?:strin
 ## See also
 - [[agent-command-flow]] — the end-to-end tool-calling loop and adapter/executor seam
 - [[molviewspec]] · [[molstar-api]] · [[molstar-webxr]] — the three mapped layers
+- [[molstar-trajectories]] — the MD-trajectory loading/playback gap a future command cluster would fill
 - [[project-overview]] — the constraints this schema satisfies
 
 ## Open questions
 - Envelope: batch commands (array) and transactions? Streaming ack protocol?
+- **Trajectories are out of v1.** `load-structure` loads a single static structure; loading a
+  topology + a separate coordinate stream (PDB+XTC and other MD trajectories) and **frame
+  playback** would be a future command cluster wrapping Mol\*'s `loadTrajectory` +
+  `AnimateModelIndex` (src: raw/0010, [[molstar-trajectories]]).
 - ✅ **Error code taxonomy** — the v1 `error.code` set is defined and enforced by the
   executor (src: raw/0008, listed above); Plan 3a left it intact and reduced
   `unsupported_selection` to a reserved-unused code (raw/0009). Remaining: whether to open
