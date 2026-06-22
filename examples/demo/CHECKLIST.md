@@ -35,6 +35,33 @@ Open the printed URL. The left pane is the Mol\* canvas; the right column is the
 9. **Error surfacing** — try highlight before loading → an `empty_selection`/`no_structure`
    result line appears (no silent failure).
 
+## Trajectory (MD playback)
+
+Needs a locally-served topology + coordinate file. The `MD_Data/` folder is gitignored
+(large, not bundled); serve it and paste the URLs into the **Trajectory** panel:
+
+```bash
+npx serve MD_Data/5GGS      # prints an origin, e.g. http://localhost:3000
+```
+
+1. **Load trajectory** — paste the `*_nowat.pdb` (topology) and `*_nowat.xtc` (coordinates)
+   URLs, format pdb/xtc → "Load trajectory". The complex renders. A topology/coordinate
+   atom-count mismatch surfaces a `trajectory_mismatch` error (no silent corruption).
+2. **Play / Stop** — "Play" animates the frames (loops); "Stop" halts. Tune fps feel.
+3. **Seek** — drag the frame slider; the structure jumps to that frame and the readout's
+   `currentFrame` follows.
+4. **Scene state** — the readout shows `frameCount / currentFrame / isPlaying`; it matches
+   what's on screen.
+
+> **MD_Data chain-id caveat (data, not library):** the `*_interactions.json` files label the
+> antigen chain `Z`, but the `*_nowat` viewer files label it `A`. Use the viewer files' ids
+> when selecting chains.
+
+> **`isPlaying` after natural end:** `isPlaying` is a local flag on the adapter; if a
+> non-looping playback finishes naturally (without a `stop-trajectory` call), `get-scene-context`
+> may still report `isPlaying: true`. This is a known v1 limitation — use `stop-trajectory`
+> explicitly or ignore the flag after playback ends.
+
 ## WebXR
 
 The XR panel enables "Enter XR" only when `xr.isSupported()` is true.
