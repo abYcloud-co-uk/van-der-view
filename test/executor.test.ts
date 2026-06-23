@@ -368,4 +368,20 @@ describe('createExecutor — trajectory cluster', () => {
     expect(errorOf(res).code).toBe('invalid_input');
     expect(ctx.setFrame).not.toHaveBeenCalled();
   });
+
+  it('rejects play on a single-frame trajectory with invalid_input', async () => {
+    const ctx = fakeContext({ getSceneContext: () => trajectoryScene(1) });
+    const res = await createExecutor(ctx).dispatch({ name: 'play-trajectory', input: {} });
+    expect(errorOf(res).code).toBe('invalid_input');
+    expect(ctx.playTrajectory).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-positive or non-finite fps with invalid_input', async () => {
+    const ctx = fakeContext({ getSceneContext: () => trajectoryScene(309) });
+    for (const fps of [0, -5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const res = await createExecutor(ctx).dispatch({ name: 'play-trajectory', input: { fps } });
+      expect(errorOf(res).code).toBe('invalid_input');
+    }
+    expect(ctx.playTrajectory).not.toHaveBeenCalled();
+  });
 });

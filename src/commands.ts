@@ -134,7 +134,7 @@ export const VDV_COMMANDS: readonly CommandSpec[] = deepFreeze<CommandSpec[]>([
     inputSchema: {
       type: 'object',
       properties: {
-        fps: { type: 'number', description: 'Target frames per second (default ~30).' },
+        fps: { type: 'number', exclusiveMinimum: 0, description: 'Target frames per second (must be > 0; default ~30).' },
         loop: { type: 'boolean', description: 'Loop continuously (true, default) or play once (false).' },
       },
       additionalProperties: false,

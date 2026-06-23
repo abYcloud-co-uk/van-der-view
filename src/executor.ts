@@ -3,7 +3,7 @@ import type { Structure } from 'molstar/lib/mol-model/structure';
 import type { Command, CommandResult, Selection } from './types';
 import { err, ok } from './types';
 import { isPlainObject } from './util';
-import type { ExecutorContext, FocusOptions } from './context';
+import type { ExecutorContext, FocusOptions, PlayTrajectoryOptions } from './context';
 import { ExecutorError } from './errors';
 import type { ErrorCode } from './errors';
 import { defaultResolveStructure } from './resolve-structure';
@@ -79,11 +79,24 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
         }
         case 'play-trajectory': {
           const input = asObject(command.input);
-          if (ctx.getSceneContext().trajectory === undefined) {
+          const traj = ctx.getSceneContext().trajectory;
+          if (traj === undefined) {
             throw new ExecutorError('no_trajectory', 'no trajectory is loaded.');
           }
-          const playOptions: { fps?: number; loop?: boolean } = {};
-          if (typeof input.fps === 'number') playOptions.fps = input.fps;
+          // Mol*'s AnimateModelIndex can't animate a single frame (canApply requires
+          // frameCount > 1) — without this guard play would return ok with no motion.
+          if (traj.frameCount <= 1) {
+            throw new ExecutorError('invalid_input', `trajectory has ${traj.frameCount} frame(s); nothing to animate.`);
+          }
+          const playOptions: PlayTrajectoryOptions = {};
+          if (input.fps !== undefined) {
+            // fps:0 makes Mol* compute an infinite duration → playback freezes silently;
+            // reject non-positive / non-finite values instead of forwarding them.
+            if (typeof input.fps !== 'number' || !Number.isFinite(input.fps) || input.fps <= 0) {
+              throw new ExecutorError('invalid_input', 'play-trajectory "fps" must be a finite number greater than 0.');
+            }
+            playOptions.fps = input.fps;
+          }
           if (typeof input.loop === 'boolean') playOptions.loop = input.loop;
           ctx.playTrajectory(Object.keys(playOptions).length > 0 ? playOptions : undefined);
           return ok();

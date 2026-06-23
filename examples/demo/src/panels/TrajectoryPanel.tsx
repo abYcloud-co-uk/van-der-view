@@ -16,7 +16,6 @@ export function TrajectoryPanel() {
   const disabled = !viewer;
   const [topologyUrl, setTopologyUrl] = useState('http://localhost:3000/5GGS_nowat.pdb');
   const [coordsUrl, setCoordsUrl] = useState('http://localhost:3000/5GGS_nowat.xtc');
-  const [frame, setFrame] = useState(0);
   const [result, setResult] = useState<CommandResult>();
   const [scene, setScene] = useState<SceneContext>();
 
@@ -27,7 +26,10 @@ export function TrajectoryPanel() {
     if (ctx.ok) setScene(ctx.data as SceneContext);
   };
 
+  // Derive the slider position from the scene's read-model (not a parallel local state) so
+  // it stays in sync after Play advances frames or a new (shorter) trajectory is loaded.
   const frameCount = scene?.trajectory?.frameCount ?? 1;
+  const currentFrame = scene?.trajectory?.currentFrame ?? 0;
 
   return (
     <Panel title="Trajectory">
@@ -59,18 +61,14 @@ export function TrajectoryPanel() {
       </div>
       <div style={{ marginTop: 8 }}>
         <label style={{ fontSize: 12 }}>
-          frame {frame} / {frameCount - 1}
+          frame {currentFrame} / {frameCount - 1}
           <input
             type="range"
             min={0}
             max={Math.max(0, frameCount - 1)}
-            value={frame}
+            value={currentFrame}
             disabled={disabled}
-            onChange={(e) => {
-              const index = Number(e.target.value);
-              setFrame(index);
-              void run({ name: 'set-frame', input: { index } });
-            }}
+            onChange={(e) => void run({ name: 'set-frame', input: { index: Number(e.target.value) } })}
             style={{ width: '100%' }}
           />
         </label>
