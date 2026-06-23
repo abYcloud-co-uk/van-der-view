@@ -7,7 +7,7 @@ the right page. Schema and the three operations are defined in [CLAUDE.md](CLAUD
 > bridges an AI agent and the Mol\* 3D molecular renderer via a lightweight
 > standardized JSON command schema. See [[project-overview]].
 
-_Last updated: 2026-06-23 · 10 pages · 12 sources_
+_Last updated: 2026-06-23 · 11 pages · 13 sources_
 
 ## Clusters
 
@@ -16,6 +16,7 @@ _Last updated: 2026-06-23 · 10 pages · 12 sources_
 |---|---|
 | [[project-overview]] | Goal, audience/boundary, 5 constraints, locked tech decisions. `decision` `stable` |
 | [[testing-strategy]] | Automated Node unit tests + a manual Vite demo; rendering/XR verified by hand. `decision` `stable` |
+| [[packaging]] | tsup ESM dual-entry build, scoped GitHub Packages publish, `verify:package` gate + molstar-free guard. `decision` `stable` |
 
 ### Schema / Protocol
 | Page | Hook |
@@ -56,12 +57,13 @@ _Last updated: 2026-06-23 · 10 pages · 12 sources_
 | 0010 | Mol\* trajectory loading — source inspection of molstar 5.10.1 (topology+coordinates, `loadTrajectory`, `AnimateModelIndex`; corrects the VR notes' "no atom-count guard" claim) |
 | 0011 | Plan 3b — Vite demo (`examples/demo/`) merged (PR #14) & GPU-verified except WebXR; library fixes `subscribeSupported` + `SceneContext` export |
 | 0012 | Trajectory + playback cluster merged (PR #17) & GPU-verified — 4 commands, `resolveCoordinates` hook, port members, pure-Node spike, demo panel; external-review fix wave (H1 dropped-wiring etc.) |
+| 0013 | Packaging merged (PR #19) — tsup ESM dual-entry build, scoped `@abycloud-co-uk/van-der-view` GHP package, `verify:package` gate + molstar-free guard; molstar optional / react required peers; external-review fix wave |
 
 ## Open questions (rollup)
 - ✅ **Selection tests in Node** — resolved: pure-Node `Structure`/loci build confirmed (raw/0007) and the executor + `resolveSelection` are unit-tested (raw/0008, [[testing-strategy]]).
 - ✅ **Plan-3 handoffs** — resolved by Plan 3a (raw/0009): the real `molstarExecutorContext` adapter, the 7 preset selectors, and numeric `focus.zoomOut` all landed; `clearHighlight` is wired in the adapter. Only **`highlight.style`** moved on — to the **v1.1** representation cluster ([[command-schema]], [[agent-command-flow]]). Still future: multi-model selection scoping, host error-code passthrough, XR early-subscribe.
 - ✅ **One component vs hooks-only** — shipped: `<MolViewCanvas/>` + `<MolViewProvider>`/`useMolView()` (raw/0009, [[headless-react]]).
-- **Packaging** — the remaining structural decision: peer-dep on `molstar` vs bundle, and the package `exports` splitting the molstar-free `src/index.ts` from the molstar-dependent `src/browser.ts` (after Plan 3b). `react`/`react-dom` already peer deps ([[project-overview]], [[headless-react]]).
+- ✅ **Packaging** — shipped (PR #19, raw/0013, [[packaging]]): tsup ESM dual-entry build, scoped `@abycloud-co-uk/van-der-view` on org GitHub Packages, `molstar` optional + `react`/`react-dom` required peers, a `verify:package` gate enforcing the molstar-free split. Still open: a **public npm** release at a stable version (GHP needs auth even for public packages).
 - **Mol\* version** — pin a `5.x` and verify signatures against `.d.ts` ([[molstar-api]]); Plan 2 + 3a build against `5.10.1`.
 - **Command envelope** — batching/transactions and ack/streaming still open; the **v1 error-code taxonomy is defined** (`unsupported_selection` now reserved-unused) (raw/0008, raw/0009, [[command-schema]]).
 - **`dispatch` input** — `Command` only vs convenience overload for the raw provider block ([[agent-command-flow]])
@@ -70,9 +72,9 @@ _Last updated: 2026-06-23 · 10 pages · 12 sources_
 - ✅ **Plan 3b** — the Vite demo (`examples/demo/`) is merged and **GPU-verified for all
   non-XR functionality** (raw/0011). ⏸️ **WebXR is the one untested piece** (no headset) —
   deferred until a device is available ([[testing-strategy]], [[molstar-webxr]]).
-- **Next build direction** — **packaging** (build + `exports` split), the **v1.1 representation
-  cluster** (reconcile open PR #11 first), or **trajectory follow-ups** (in-XR playback,
-  palindrome/trim/multi-trajectory); v1 runtime + the trajectory cluster are complete ([[project-overview]]).
+- **Next build direction** — packaging is done (PR #19, [[packaging]]); remaining: the **v1.1
+  representation cluster** (reconcile open PR #11 first), or **trajectory follow-ups** (in-XR playback,
+  palindrome/trim/multi-trajectory); v1 runtime + the trajectory cluster + packaging are complete ([[project-overview]]).
 
 ## How to grow this wiki
 - `/wiki-ingest <url|file|text>` — add a source, synthesize pages

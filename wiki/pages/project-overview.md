@@ -3,9 +3,9 @@ title: Project Overview — van-der-view
 slug: project-overview
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0011-plan3b-demo-merged-verified-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md, "user brief 2026-06-18"]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0011-plan3b-demo-merged-verified-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md, raw/0013-packaging-merged-2026-06-23.md, "user brief 2026-06-18"]
 updated: 2026-06-23
-links: [command-schema, agent-command-flow, molstar-api, molviewspec, molstar-webxr, headless-react, testing-strategy, molstar-trajectories]
+links: [command-schema, agent-command-flow, molstar-api, molviewspec, molstar-webxr, headless-react, testing-strategy, molstar-trajectories, packaging]
 ---
 
 # Project Overview — van-der-view
@@ -54,16 +54,18 @@ live changes in a complex Web 3D molecular view.
   raw Mol\*. Executor is provider-agnostic; adapters are per-provider (v1 = Anthropic,
   OpenAI/Codex placeholder). See [[agent-command-flow]] and [[command-schema]].
 - **v1 commands:** load-structure, highlight, focus, get-scene-context, reset-camera.
-- **Build status (src: raw/0008, raw/0009, raw/0011, raw/0012):** the **agent-side core** (schema +
-  Anthropic adapter, Plan 1), the **browser-side executor core** (`createExecutor().dispatch()`
+- **Build status (src: raw/0008, raw/0009, raw/0011, raw/0012, raw/0013):** the **agent-side core**
+  (schema + Anthropic adapter, Plan 1), the **browser-side executor core** (`createExecutor().dispatch()`
   over an `ExecutorContext` port, Plan 2), the **browser runtime core** (the real
   `molstarExecutorContext` adapter + the `<MolViewProvider>`/`useMolView()`/`<MolViewCanvas/>`
   React mount + an SSR smoke, **Plan 3a**), the **Vite demo** (`examples/demo/`, the manual
-  layer, **Plan 3b**), and the **trajectory + playback cluster** (PR #17, GPU-verified) are all
-  implemented and merged (**116 tests**). The demo is **GPU-verified** for all non-XR
-  functionality; **WebXR is the one piece still untested** (no headset). So the v1 runtime + the
-  first post-v1 cluster are complete and visually validated sans XR. Next: **packaging**, the
-  **v1.1 representation cluster** (reconcile open PR #11), and **trajectory follow-ups**. See
+  layer, **Plan 3b**), the **trajectory + playback cluster** (PR #17, GPU-verified), and
+  **packaging** (PR #19 — tsup ESM dual-entry build, the scoped `@abycloud-co-uk/van-der-view` GitHub
+  Packages package, the `verify:package` release gate; [[packaging]]) are all implemented and merged
+  (**116 tests**). The demo is **GPU-verified** for all non-XR functionality; **WebXR is the one
+  piece still untested** (no headset). So the v1 runtime + the first post-v1 cluster are complete and
+  visually validated sans XR, and the library is now buildable/publishable. Next: the **v1.1
+  representation cluster** (reconcile open PR #11), and **trajectory follow-ups**. See [[packaging]],
   [[headless-react]], [[agent-command-flow]], [[testing-strategy]].
 - **Integration deltas (from the first real target, src: raw/0005):** `load-structure`
   adds an `inline` source and routes all loading through a host `resolveStructure`
@@ -81,6 +83,7 @@ live changes in a complex Web 3D molecular view.
 - [[agent-command-flow]] — adapter + executor, end-to-end loop
 - [[molstar-api]] · [[molviewspec]] · [[molstar-webxr]] · [[headless-react]]
 - [[testing-strategy]] — automated Node tests + a manual demo
+- [[packaging]] — the tsup build, `exports` split, and GitHub Packages publish
 
 ## Open questions
 - ✅ **Testing strategy** — designed *and* realized: Node-side `Structure` build confirmed
@@ -88,9 +91,10 @@ live changes in a complex Web 3D molecular view.
   preset/XR/SSR coverage (raw/0009). See [[testing-strategy]].
 - ✅ **One component vs hooks-only** — decided & shipped: vdv ships `<MolViewCanvas/>` +
   `<MolViewProvider>`/`useMolView()` (raw/0009, [[headless-react]]).
-- **Packaging** (the remaining structural decision): peer-dep on `molstar` vs bundle, and
-  the package `exports` map splitting the molstar-free `src/index.ts` from the
-  molstar-dependent `src/browser.ts` (build phase, after Plan 3b). `react`/`react-dom` are
-  already peer deps (raw/0009).
+- ✅ **Packaging** — shipped (PR #19, raw/0013, [[packaging]]): **tsup** ESM dual-entry build
+  (`.` agent-side / `./browser` molstar-dependent), the scoped `@abycloud-co-uk/van-der-view`
+  package on the org **GitHub Packages** registry, `molstar` an **optional** peer + `react`/
+  `react-dom` **required** peers, and a `verify:package` gate enforcing the molstar-free split.
+  Still open: a **public npm** release at a stable version (GHP needs auth even for public pkgs).
 - Pin which Mol\* `5.x` to target (3a builds against 5.10.1).
 - Server-side vs client-side MVS construction (for the v1.1 `load-scene`).
