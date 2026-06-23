@@ -61,13 +61,24 @@ cores have all landed** (`src/`):
   `molstar` an **optional** peer + `react`/`react-dom` **required** peers, and a `verify:package`
   release gate (typecheck→test→build→publint→attw→molstar-free guard→dist smoke) that `prepublishOnly`
   runs. Publish is a Release-triggered workflow using `GITHUB_TOKEN`. See `wiki/pages/packaging.md`.
+- **v1.1a representation cluster** (merged — PR #21, GPU-verified 2026-06-23): five commands
+  (`set-representation`/`set-color`/`toggle-visibility`/`measure-distance`/`add-label`), agent-side
+  digested from the now-closed PR #11. The new work is the GPU-side **appearance model**: each styled
+  selection owns **one** component (keyed by a full-identity loci key) holding its representation **and**
+  color, with the preset's draw hidden under **per-loci transparency** — so color persists across
+  representation changes, schemes apply **per-selection** (not structure-wide), and styling one
+  selection never disturbs another. `set-color` is scheme *or* hex; `measure-distance` is pure-Node
+  (`measure.ts`, no port member); the 4 mutator port members are `Promise<void>` and the executor
+  awaits them (fail→`internal_error`). Took two rejected drafts (component-over-preset; color-on-preset)
+  + a GPU pass to settle. No new error codes. Off-GPU logic Node-tested (suite now **142 tests**); the
+  adapter is typecheck-gated + GPU-verified. See `wiki/pages/molstar-appearance.md`.
 
-So the v1 runtime + the first post-v1 cluster are complete and GPU-validated (sans XR), and the library
-is now buildable/publishable. Next (`docs/superpowers/plans/`): the **v1.1 representation cluster**
-(`highlight.style` + `color`/`set-representation`/`load-scene`/`toggle-xr` — reconcile the pre-existing
-open PR #11 first), and **trajectory follow-ups** (in-XR playback, palindrome/trim/multi-trajectory).
-A **public npm** release is the packaging follow-up (deferred to a stable version; GitHub Packages
-needs auth even for public packages).
+So the v1 runtime + the trajectory cluster + packaging + the v1.1a representation cluster are complete
+and GPU-validated (sans XR), and the library is buildable/publishable. Next (`docs/superpowers/plans/`):
+**v1.1b** (`highlight.style` + `load-scene`/`toggle-xr`, plus **multi-representation components** for
+mixed polymer+ligand selections — the one deferred limitation of the v1.1a appearance model), and
+**trajectory follow-ups** (in-XR playback, palindrome/trim/multi-trajectory). A **public npm** release
+is the packaging follow-up (deferred to a stable version; GitHub Packages needs auth even for public packages).
 
 Commands:
 - `pnpm test` — run the Vitest suite (`pnpm test:watch` to watch)
