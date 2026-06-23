@@ -50,11 +50,11 @@ export interface ExecutorContext {
   stopTrajectory(): void;
   setFrame(index: number): void;
   /** Set the representation (draw style) of a selection. */
-  setRepresentation(loci: StructureElement.Loci, type: RepresentationType): void;
+  setRepresentation(loci: StructureElement.Loci, type: RepresentationType): Promise<void>;
   /** Recolor a selection, by scheme or by a single solid color. */
-  setColor(loci: StructureElement.Loci, color: ColorSpec): void;
+  setColor(loci: StructureElement.Loci, color: ColorSpec): Promise<void>;
   /** Show (`visible: true`) or hide (`visible: false`) a selection. */
-  setVisibility(loci: StructureElement.Loci, visible: boolean): void;
+  setVisibility(loci: StructureElement.Loci, visible: boolean): Promise<void>;
   /** Place a 3D text label at the center of a selection. */
-  addLabel(loci: StructureElement.Loci, text: string): void;
+  addLabel(loci: StructureElement.Loci, text: string): Promise<void>;
 }

@@ -533,4 +533,14 @@ describe('createExecutor — representation cluster (v1.1a)', () => {
     });
     expect(errorOf(res).code).toBe('no_structure');
   });
+
+  it('reports internal_error when a mutator port member rejects', async () => {
+    // The port is now async + awaited, so a failed GPU op surfaces as a reported
+    // error rather than a silent ok() (findings 1/7).
+    const ctx = fakeContext({ setRepresentation: vi.fn(async () => { throw new Error('gpu boom'); }) });
+    const res = await createExecutor(ctx).dispatch({
+      name: 'set-representation', input: { selection: { chain: 'A' }, type: 'cartoon' },
+    });
+    expect(errorOf(res).code).toBe('internal_error');
+  });
 });

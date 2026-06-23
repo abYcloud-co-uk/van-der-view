@@ -44,10 +44,18 @@ export function RepresentationPanel() {
       <hr style={{ borderColor: '#333' }} />
       <button
         disabled={disabled}
-        onClick={() => run({ name: 'measure-distance', input: { from: { chain: 'A' }, to: { chain: 'B' } } })}
+        onClick={() =>
+          run({
+            name: 'measure-distance',
+            input: { from: { chain: 'A', residues: [1] }, to: { chain: 'A', residues: [46] } },
+          })
+        }
       >
-        distance A↔B
+        distance res1↔res46
       </button>
+      <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
+        Note: scheme colors recolor the whole structure (molstar schemes are not per-selection).
+      </div>
       <ResultView result={result} />
     </Panel>
   );

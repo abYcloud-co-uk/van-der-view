@@ -212,7 +212,7 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
           const input = asObject(command.input);
           const loci = nonEmptyLociFor(ctx, requireSelection(input));
           const type = requireEnum<RepresentationType>(input, 'type', REPRESENTATION_TYPES);
-          ctx.setRepresentation(loci, type);
+          await ctx.setRepresentation(loci, type);
           return ok();
         }
         case 'set-color': {
@@ -220,14 +220,14 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
           // Validate the color spec first so a bad color fails before resolving the loci.
           const color = requireColorSpec(input);
           const loci = nonEmptyLociFor(ctx, requireSelection(input));
-          ctx.setColor(loci, color);
+          await ctx.setColor(loci, color);
           return ok();
         }
         case 'toggle-visibility': {
           const input = asObject(command.input);
           const visible = requireBoolean(input, 'visible');
           const loci = nonEmptyLociFor(ctx, requireSelection(input));
-          ctx.setVisibility(loci, visible);
+          await ctx.setVisibility(loci, visible);
           return ok();
         }
         case 'measure-distance': {
@@ -241,7 +241,7 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
           const input = asObject(command.input);
           const text = requireString(input, 'text');
           const loci = nonEmptyLociFor(ctx, requireSelection(input));
-          ctx.addLabel(loci, text);
+          await ctx.addLabel(loci, text);
           return ok();
         }
         case 'get-scene-context':

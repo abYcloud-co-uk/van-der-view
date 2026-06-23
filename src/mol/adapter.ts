@@ -9,8 +9,18 @@ import { AnimateModelIndex } from 'molstar/lib/mol-plugin-state/animation/built-
 import type { LoadTrajectoryParams } from 'molstar/lib/extensions/plugin/loaders';
 import type { ResolvedTrajectory } from '../resolve-coordinates';
 import { Color } from 'molstar/lib/mol-util/color';
+import type { ColorTheme } from 'molstar/lib/mol-theme/color';
 import { OrderedSet } from 'molstar/lib/mol-data/int';
 import { setSubtreeVisibility } from 'molstar/lib/mol-plugin/behavior/static/state';
+import {
+  setStructureOverpaint,
+  clearStructureOverpaint,
+} from 'molstar/lib/mol-plugin-state/helpers/structure-overpaint';
+import {
+  setStructureTransparency,
+  clearStructureTransparency,
+} from 'molstar/lib/mol-plugin-state/helpers/structure-transparency';
+import type { StateObjectSelector } from 'molstar/lib/mol-state';
 import { ExecutorError } from '../errors';
 import type { ColorScheme, RepresentationType } from '../types';
 import type { ColorSpec } from '../context';
@@ -54,11 +64,13 @@ const SCHEME_TO_THEME: Record<ColorScheme, string> = {
   'sequence-id': 'sequence-id',
 };
 
-/** A stable cache key for a loci (its units + element index sets). Two loci over
- *  the same atoms produce the same key → the same per-selection component. */
+/** A compact, stable cache key for a loci. Built from each unit id plus the index
+ *  set's bounds + cardinality (not the full materialized index array — finding 10).
+ *  Caveat: two *different* same-cardinality selections sharing the same [start,end)
+ *  bounds collide to one key — acceptable for the v1.1a single-selection demo. */
 function lociKey(loci: StructureElement.Loci): string {
   return loci.elements
-    .map((e) => `${e.unit.id}:${OrderedSet.toArray(e.indices).join(',')}`)
+    .map((e) => `${e.unit.id}:${OrderedSet.start(e.indices)}-${OrderedSet.end(e.indices)}:${OrderedSet.size(e.indices)}`)
     .join('|');
 }
 
@@ -76,14 +88,34 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
 
   /** Per-selection visual components (replace-in-place model). Keyed by lociKey.
    *  `repr` is the current representation selector; `reprType`/`color` are the
-   *  last-applied style, re-applied when the other changes. */
+   *  last-applied style, re-applied when the other changes; `label` is the prior
+   *  add-label node (deleted before re-adding, matching the replace-in-place model). */
   type CompEntry = {
-    component: Awaited<ReturnType<typeof plugin.builders.structure.tryCreateComponentFromExpression>>;
+    component?: Awaited<ReturnType<typeof plugin.builders.structure.tryCreateComponentFromExpression>>;
     repr?: Awaited<ReturnType<typeof plugin.builders.structure.representation.addRepresentation>>;
     reprType?: RepresentationType;
     color?: ColorSpec;
+    label?: StateObjectSelector;
   };
   const components = new Map<string, CompEntry>();
+
+  /** In-flight op per loci-key (findings 4/5): each mutator chains onto the prior op
+   *  for the same key so concurrent same-loci calls can't race (double-delete /
+   *  non-atomic create). The stored promise swallows rejection so a failed prior op
+   *  doesn't poison the chain; the awaiter still sees the real throw via `next`. */
+  const inflight = new Map<string, Promise<unknown>>();
+  function serialize<T>(key: string, work: () => Promise<T>): Promise<T> {
+    const prev = inflight.get(key) ?? Promise.resolve();
+    const next = prev.then(work);
+    inflight.set(key, next.catch(() => {}));
+    return next;
+  }
+
+  /** The preset's structure components (`default` preset from load-structure). The
+   *  overpaint/transparency helpers operate on these in place, so v1.1a commands
+   *  modify the preset's coverage rather than layering an independent component. */
+  const presetComponents = () =>
+    plugin.managers.structure.hierarchy.current.structures[0]?.components ?? [];
 
   /** Get-or-create the per-selection component for a loci. */
   async function componentFor(
@@ -114,7 +146,11 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
   ): Promise<void> {
     const entry = components.get(key);
     if (!entry?.component) return;
+    // Finding 7: drop the prior repr *and clear the cached ref* before rebuilding, so a
+    // throw in addRepresentation below leaves the entry pointing at no repr (clean) rather
+    // than a deleted node. The throw then propagates (Part A await → internal_error).
     if (entry.repr) await plugin.build().delete(entry.repr).commit();
+    entry.repr = undefined;
     const props: Record<string, unknown> = { type };
     if (color) {
       if ('hex' in color) {
@@ -125,7 +161,8 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
       }
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- addRepresentation's prop union is built-in-typed; we pass a validated subset
-    entry.repr = await plugin.builders.structure.representation.addRepresentation(entry.component, props as any);
+    const repr = await plugin.builders.structure.representation.addRepresentation(entry.component, props as any);
+    entry.repr = repr;
     entry.reprType = type;
     entry.color = color;
   }
@@ -278,36 +315,66 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
     },
 
     setRepresentation(loci, type) {
-      void (async () => {
+      const key = lociKey(loci);
+      return serialize(key, async () => {
+        // Create-or-reuse the vdv component, (re)apply the single representation, then
+        // hide the preset's draw of those atoms so only the new style shows (finding 2).
         const component = await componentFor(loci);
         if (!component) return;
-        const key = lociKey(loci);
         await applyStyle(key, type, components.get(key)?.color);
-      })();
+        await setStructureTransparency(plugin, presetComponents(), 1, async () => loci);
+      });
     },
 
     setColor(loci, color) {
-      void (async () => {
-        const component = await componentFor(loci);
-        if (!component) return;
-        const key = lociKey(loci);
-        // Default to ball-and-stick when coloring a selection that has no representation yet.
-        const type = components.get(key)?.reprType ?? 'ball-and-stick';
-        await applyStyle(key, type, color);
-      })();
+      const key = lociKey(loci);
+      return serialize(key, async () => {
+        if ('hex' in color) {
+          // Solid color: overpaint the selection on the preset's existing representations.
+          // clearStructureOverpaint clears ALL overpaint on the preset comps (no per-loci
+          // scope in molstar) — acceptable v1.1a single-selection simplification.
+          const comps = presetComponents();
+          await clearStructureOverpaint(plugin, comps);
+          await setStructureOverpaint(plugin, comps, Color.fromHexStyle(color.hex), async () => loci);
+        } else {
+          // Data-driven scheme: structure-wide retheme (schemes are not per-sub-selection
+          // in molstar). The selection is accepted but the recolor covers the whole structure.
+          // The JSDoc on UpdateThemeParams.color sanctions a cast for arbitrary theme names.
+          await plugin.managers.structure.component.updateRepresentationsTheme(presetComponents(), {
+            color: SCHEME_TO_THEME[color.scheme] as ColorTheme.BuiltIn,
+          });
+        }
+      });
     },
 
     setVisibility(loci, visible) {
-      void (async () => {
-        const component = await componentFor(loci);
-        if (!component) return;
-        setSubtreeVisibility(plugin.state.data, component.ref, !visible);
-      })();
+      const key = lociKey(loci);
+      return serialize(key, async () => {
+        if (visible) {
+          // Restore: clearStructureTransparency clears ALL transparency on the preset comps
+          // (no per-loci scope) — acceptable v1.1a single-selection simplification.
+          await clearStructureTransparency(plugin, presetComponents());
+        } else {
+          await setStructureTransparency(plugin, presetComponents(), 1, async () => loci);
+        }
+        // Also toggle any vdv component for this loci so a re-styled selection hides/shows too.
+        const component = components.get(key)?.component;
+        if (component) setSubtreeVisibility(plugin.state.data, component.ref, !visible);
+      });
     },
 
     addLabel(loci, text) {
-      // The measurement manager takes a loci directly — no per-selection component.
-      void plugin.managers.structure.measurement.addLabel(loci, { visualParams: { customText: text } });
+      const key = lociKey(loci);
+      return serialize(key, async () => {
+        // Replace-in-place: delete the prior label for this loci before adding the new one
+        // (finding 8 — otherwise duplicate labels stack).
+        const entry = components.get(key);
+        if (entry?.label) await plugin.build().delete(entry.label).commit();
+        const result = await plugin.managers.structure.measurement.addLabel(loci, {
+          visualParams: { customText: text },
+        });
+        if (result) components.set(key, { ...(components.get(key) ?? {}), label: result.representation });
+      });
     },
   };
 }
