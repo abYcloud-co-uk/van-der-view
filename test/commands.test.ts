@@ -1,20 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { VDV_COMMANDS } from '../src/commands';
-import { COORDINATE_FORMATS, COORDINATE_SOURCES, LOAD_SOURCES, NUMBERINGS, SELECTION_PRESETS } from '../src/types';
+import { COLOR_SCHEMES, COORDINATE_FORMATS, COORDINATE_SOURCES, LOAD_SOURCES, NUMBERINGS, REPRESENTATION_TYPES, SELECTION_PRESETS } from '../src/types';
 
 describe('VDV_COMMANDS', () => {
   it('contains the v1 commands plus the trajectory cluster', () => {
     const names = VDV_COMMANDS.map((c) => c.name).sort();
     expect(names).toEqual([
+      'add-label',
       'focus',
       'get-scene-context',
       'highlight',
       'load-structure',
       'load-trajectory',
+      'measure-distance',
       'play-trajectory',
       'reset-camera',
+      'set-color',
       'set-frame',
+      'set-representation',
       'stop-trajectory',
+      'toggle-visibility',
     ]);
   });
 
@@ -106,5 +111,34 @@ describe('VDV_COMMANDS — trajectory cluster', () => {
 
   it('freezes the new command schemas against mutation', () => {
     expect(Object.isFrozen(byName('load-trajectory')?.inputSchema)).toBe(true);
+  });
+});
+
+describe('VDV_COMMANDS — representation cluster (v1.1a)', () => {
+  const byName = (n: string) => VDV_COMMANDS.find((c) => c.name === n);
+
+  it('set-representation requires selection + type, type enum from REPRESENTATION_TYPES', () => {
+    const cmd = byName('set-representation');
+    expect(cmd?.inputSchema.required).toEqual(['selection', 'type']);
+    expect((cmd?.inputSchema.properties.type as { enum: string[] }).enum).toEqual([...REPRESENTATION_TYPES]);
+  });
+
+  it('set-color requires only selection and exposes scheme + color', () => {
+    const cmd = byName('set-color');
+    expect(cmd?.inputSchema.required).toEqual(['selection']);
+    expect((cmd?.inputSchema.properties.scheme as { enum: string[] }).enum).toEqual([...COLOR_SCHEMES]);
+    expect(cmd?.inputSchema.properties.color).toBeDefined();
+  });
+
+  it('toggle-visibility requires selection + visible', () => {
+    expect(byName('toggle-visibility')?.inputSchema.required).toEqual(['selection', 'visible']);
+  });
+
+  it('measure-distance requires from + to', () => {
+    expect(byName('measure-distance')?.inputSchema.required).toEqual(['from', 'to']);
+  });
+
+  it('add-label requires selection + text', () => {
+    expect(byName('add-label')?.inputSchema.required).toEqual(['selection', 'text']);
   });
 });

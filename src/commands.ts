@@ -1,5 +1,5 @@
 import type { CommandSpec } from './types';
-import { COORDINATE_FORMATS, COORDINATE_SOURCES, LOAD_SOURCES, NUMBERINGS, SELECTION_PRESETS, STRUCTURE_FORMATS } from './types';
+import { COLOR_SCHEMES, COORDINATE_FORMATS, COORDINATE_SOURCES, LOAD_SOURCES, NUMBERINGS, REPRESENTATION_TYPES, SELECTION_PRESETS, STRUCTURE_FORMATS } from './types';
 import { deepFreeze } from './util';
 
 /** JSON Schema fragment for a Selection (shared by highlight/focus). */
@@ -154,6 +154,106 @@ export const VDV_COMMANDS: readonly CommandSpec[] = deepFreeze<CommandSpec[]>([
         index: { type: 'integer', description: '0-based frame index (0 .. frameCount-1).' },
       },
       required: ['index'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'set-representation',
+    description:
+      'Change how a selection is drawn (its visual representation / draw style). ' +
+      'cartoon = ribbon/helix schematic (best for whole proteins); ball-and-stick = atoms as ' +
+      'balls and bonds as sticks (best for ligands and active sites); spacefill = solid van der ' +
+      'Waals spheres; molecular-surface / gaussian-surface = a smooth solvent surface; ' +
+      'point / line = lightweight wireframe; ellipsoid = anisotropic thermal ellipsoids. ' +
+      'Example: { "selection": { "chain": "A" }, "type": "cartoon" }.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        selection: selectionSchema,
+        type: {
+          type: 'string',
+          enum: [...REPRESENTATION_TYPES],
+          description: 'The representation (draw style) to apply to the selection.',
+        },
+      },
+      required: ['selection', 'type'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'set-color',
+    description:
+      'Recolor a selection, either by a built-in data-driven scheme OR by a single solid color. ' +
+      'Give exactly one of "scheme" or "color". Use "scheme" for meaning-carrying coloring: ' +
+      "'element' (by atom type, CPK), 'chain' (a distinct color per chain), 'residue-index' " +
+      "(rainbow N→C), 'secondary-structure' (helix/sheet/coil), 'b-factor' (by atomic " +
+      "uncertainty/flexibility), 'hydrophobicity', 'sequence-id'. Use \"color\" for one uniform " +
+      'hex color. Examples: { "selection": { "chain": "A" }, "scheme": "b-factor" } or ' +
+      '{ "selection": { "chain": "A" }, "color": "#1e90ff" }.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        selection: selectionSchema,
+        scheme: {
+          type: 'string',
+          enum: [...COLOR_SCHEMES],
+          description: 'A built-in data-driven color scheme. Mutually exclusive with "color".',
+        },
+        color: {
+          type: 'string',
+          description: 'A single solid color as a 6-digit hex string, e.g. "#ff0000". Mutually exclusive with "scheme".',
+        },
+      },
+      required: ['selection'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'toggle-visibility',
+    description:
+      'Show or hide a selection. Set "visible": false to hide it, true to show it again. ' +
+      'Useful to declutter the scene — e.g. to focus on a binding site, hide the bulk and keep ' +
+      'the site visible. Example: { "selection": { "chain": "B" }, "visible": false }.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        selection: selectionSchema,
+        visible: { type: 'boolean', description: 'true shows the selection; false hides it.' },
+      },
+      required: ['selection', 'visible'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'measure-distance',
+    description:
+      'Measure the straight-line distance, in ångströms (Å), between two selections. It is ' +
+      'computed between the geometric centers of the atoms each selection matches, and returned ' +
+      'in the result as data.distanceAngstrom. Use this to answer "how far apart are X and Y". ' +
+      'Example: { "from": { "chain": "A", "residues": [100] }, "to": { "chain": "A", "residues": [200] } }.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        from: { ...selectionSchema, description: 'The first selection (one end of the measurement).' },
+        to: { ...selectionSchema, description: 'The second selection (the other end of the measurement).' },
+      },
+      required: ['from', 'to'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'add-label',
+    description:
+      'Place a floating 3D text label at the center of a selection, to annotate the structure ' +
+      '(e.g. naming a residue or ligand during a guided tour). ' +
+      'Example: { "selection": { "chain": "A", "residues": [145] }, "text": "catalytic His145" }.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        selection: selectionSchema,
+        text: { type: 'string', description: 'The label text to display at the selection.' },
+      },
+      required: ['selection', 'text'],
       additionalProperties: false,
     },
   },
