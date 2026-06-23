@@ -2,8 +2,11 @@ import { StructureElement } from 'molstar/lib/mol-model/structure';
 import type { Structure } from 'molstar/lib/mol-model/structure';
 import type { Command, CommandResult, Selection } from './types';
 import { err, ok } from './types';
+import { COLOR_SCHEMES, REPRESENTATION_TYPES } from './types';
+import type { ColorScheme, MeasureDistanceResult, RepresentationType } from './types';
 import { isPlainObject } from './util';
 import type { ExecutorContext, FocusOptions, PlayTrajectoryOptions } from './context';
+import type { ColorSpec } from './context';
 import { ExecutorError } from './errors';
 import type { ErrorCode } from './errors';
 import { defaultResolveStructure } from './resolve-structure';
@@ -12,6 +15,7 @@ import { defaultResolveCoordinates } from './resolve-coordinates';
 import type { ResolveCoordinates } from './resolve-coordinates';
 import type { CoordinatesInput } from './types';
 import { resolveSelection } from './selection';
+import { distanceBetweenLoci } from './measure';
 
 export interface ExecutorOptions {
   /** Host hook to fetch auth-protected / internal structures. Defaults to RCSB/url/inline. */
@@ -41,6 +45,75 @@ function lociFor(ctx: ExecutorContext, selection: Selection): StructureElement.L
   const structure: Structure | undefined = ctx.getStructure();
   if (!structure) throw new ExecutorError('no_structure', 'no structure is loaded.');
   return resolveSelection(selection, structure);
+}
+
+/** Pull a required Selection object out of `input[key]` (e.g. "from"/"to"). */
+function requireSelectionAt(input: Record<string, unknown>, key: string): Selection {
+  if (!isPlainObject(input[key])) {
+    throw new ExecutorError('invalid_input', `expected a "${key}" selection object.`);
+  }
+  return input[key] as Selection;
+}
+
+/** Resolve a selection to a loci, throwing empty_selection if it matched nothing. */
+function nonEmptyLociFor(ctx: ExecutorContext, selection: Selection): StructureElement.Loci {
+  const loci = lociFor(ctx, selection);
+  if (StructureElement.Loci.isEmpty(loci)) {
+    throw new ExecutorError('empty_selection', 'selection matched no atoms.');
+  }
+  return loci;
+}
+
+/** Require a non-empty string field on the (LLM-supplied) input. */
+function requireString(input: Record<string, unknown>, key: string): string {
+  const value = input[key];
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new ExecutorError('invalid_input', `expected a non-empty string "${key}".`);
+  }
+  return value;
+}
+
+/** Require a boolean field. */
+function requireBoolean(input: Record<string, unknown>, key: string): boolean {
+  const value = input[key];
+  if (typeof value !== 'boolean') {
+    throw new ExecutorError('invalid_input', `expected a boolean "${key}".`);
+  }
+  return value;
+}
+
+/** Require a string field constrained to one of `allowed`. */
+function requireEnum<T extends string>(
+  input: Record<string, unknown>,
+  key: string,
+  allowed: readonly T[],
+): T {
+  const value = input[key];
+  if (typeof value !== 'string' || !allowed.includes(value as T)) {
+    throw new ExecutorError('invalid_input', `"${key}" must be one of ${allowed.join(', ')}.`);
+  }
+  return value as T;
+}
+
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+/** Validate set-color's input down to exactly one of `scheme` or a hex `color`. An LLM that
+ *  fills every schema property emits the unused one as JSON `null`, so treat null as absent
+ *  (`!= null`) — otherwise {scheme: null, color: "#ff0000"} would fail the exactly-one guard. */
+function requireColorSpec(input: Record<string, unknown>): ColorSpec {
+  const hasScheme = input.scheme != null;
+  const hasColor = input.color != null;
+  if (hasScheme === hasColor) {
+    throw new ExecutorError('invalid_input', 'set-color requires exactly one of "scheme" or "color".');
+  }
+  if (hasScheme) {
+    return { scheme: requireEnum<ColorScheme>(input, 'scheme', COLOR_SCHEMES) };
+  }
+  const color = requireString(input, 'color');
+  if (!HEX_COLOR.test(color)) {
+    throw new ExecutorError('invalid_input', '"color" must be a 6-digit hex string, e.g. "#ff0000".');
+  }
+  return { hex: color };
 }
 
 export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = {}) {
@@ -135,6 +208,42 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
           if (typeof input.durationMs === 'number') focusOptions.durationMs = input.durationMs;
           if (typeof input.zoomOut === 'number') focusOptions.zoomOut = input.zoomOut;
           ctx.focus(loci, Object.keys(focusOptions).length > 0 ? focusOptions : undefined);
+          return ok();
+        }
+        case 'set-representation': {
+          const input = asObject(command.input);
+          const loci = nonEmptyLociFor(ctx, requireSelection(input));
+          const type = requireEnum<RepresentationType>(input, 'type', REPRESENTATION_TYPES);
+          await ctx.setRepresentation(loci, type);
+          return ok();
+        }
+        case 'set-color': {
+          const input = asObject(command.input);
+          // Validate the color spec first so a bad color fails before resolving the loci.
+          const color = requireColorSpec(input);
+          const loci = nonEmptyLociFor(ctx, requireSelection(input));
+          await ctx.setColor(loci, color);
+          return ok();
+        }
+        case 'toggle-visibility': {
+          const input = asObject(command.input);
+          const visible = requireBoolean(input, 'visible');
+          const loci = nonEmptyLociFor(ctx, requireSelection(input));
+          await ctx.setVisibility(loci, visible);
+          return ok();
+        }
+        case 'measure-distance': {
+          const input = asObject(command.input);
+          const from = nonEmptyLociFor(ctx, requireSelectionAt(input, 'from'));
+          const to = nonEmptyLociFor(ctx, requireSelectionAt(input, 'to'));
+          const distanceAngstrom = distanceBetweenLoci(from, to);
+          return ok({ distanceAngstrom } satisfies MeasureDistanceResult);
+        }
+        case 'add-label': {
+          const input = asObject(command.input);
+          const text = requireString(input, 'text');
+          const loci = nonEmptyLociFor(ctx, requireSelection(input));
+          await ctx.addLabel(loci, text);
           return ok();
         }
         case 'get-scene-context':

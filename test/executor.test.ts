@@ -24,6 +24,10 @@ function fakeContext(overrides: Partial<ExecutorContext> = {}) {
     playTrajectory: vi.fn(),
     stopTrajectory: vi.fn(),
     setFrame: vi.fn(),
+    setRepresentation: vi.fn(),
+    setColor: vi.fn(),
+    setVisibility: vi.fn(),
+    addLabel: vi.fn(),
     ...overrides,
   };
   return ctx;
@@ -383,5 +387,180 @@ describe('createExecutor — trajectory cluster', () => {
       expect(errorOf(res).code).toBe('invalid_input');
     }
     expect(ctx.playTrajectory).not.toHaveBeenCalled();
+  });
+});
+
+describe('createExecutor — representation cluster (v1.1a)', () => {
+  it('set-representation resolves the selection and forwards the type', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'set-representation',
+      input: { selection: { chain: 'A' }, type: 'spacefill' },
+    });
+    expect(res.ok).toBe(true);
+    const [loci, type] = (ctx.setRepresentation as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(StructureElement.Loci.size(loci)).toBe(8);
+    expect(type).toBe('spacefill');
+  });
+
+  it('set-representation rejects an unknown type with invalid_input', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'set-representation',
+      input: { selection: { chain: 'A' }, type: 'wireframe' },
+    });
+    expect(errorOf(res).code).toBe('invalid_input');
+    expect(ctx.setRepresentation).not.toHaveBeenCalled();
+  });
+
+  it('set-color forwards a scheme spec', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'set-color',
+      input: { selection: { chain: 'A' }, scheme: 'b-factor' },
+    });
+    expect(res.ok).toBe(true);
+    expect((ctx.setColor as ReturnType<typeof vi.fn>).mock.calls[0][1]).toEqual({ scheme: 'b-factor' });
+  });
+
+  it('set-color forwards a hex spec', async () => {
+    const ctx = fakeContext();
+    await createExecutor(ctx).dispatch({
+      name: 'set-color',
+      input: { selection: { chain: 'A' }, color: '#1e90ff' },
+    });
+    expect((ctx.setColor as ReturnType<typeof vi.fn>).mock.calls[0][1]).toEqual({ hex: '#1e90ff' });
+  });
+
+  it('set-color rejects both scheme and color', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'set-color',
+      input: { selection: { chain: 'A' }, scheme: 'chain', color: '#1e90ff' },
+    });
+    expect(errorOf(res).code).toBe('invalid_input');
+    expect(ctx.setColor).not.toHaveBeenCalled();
+  });
+
+  it('set-color rejects neither scheme nor color', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({ name: 'set-color', input: { selection: { chain: 'A' } } });
+    expect(errorOf(res).code).toBe('invalid_input');
+  });
+
+  it('set-color treats an explicit null as absent (LLM fills every schema property)', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'set-color',
+      input: { selection: { chain: 'A' }, scheme: null, color: '#ff0000' },
+    });
+    expect(res.ok).toBe(true);
+    expect((ctx.setColor as ReturnType<typeof vi.fn>).mock.calls[0][1]).toEqual({ hex: '#ff0000' });
+  });
+
+  it('set-color treats a null color as absent and forwards the scheme', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'set-color',
+      input: { selection: { chain: 'A' }, scheme: 'chain', color: null },
+    });
+    expect(res.ok).toBe(true);
+    expect((ctx.setColor as ReturnType<typeof vi.fn>).mock.calls[0][1]).toEqual({ scheme: 'chain' });
+  });
+
+  it('set-color rejects a non-hex color', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'set-color',
+      input: { selection: { chain: 'A' }, color: 'red' },
+    });
+    expect(errorOf(res).code).toBe('invalid_input');
+  });
+
+  it('set-color rejects a non-hex color before the structure lookup', async () => {
+    const ctx = fakeContext({ getStructure: () => undefined });
+    const res = await createExecutor(ctx).dispatch({
+      name: 'set-color',
+      input: { selection: { chain: 'A' }, color: 'red' },
+    });
+    expect(errorOf(res).code).toBe('invalid_input'); // not 'no_structure'
+  });
+
+  it('toggle-visibility forwards the boolean', async () => {
+    const ctx = fakeContext();
+    await createExecutor(ctx).dispatch({
+      name: 'toggle-visibility',
+      input: { selection: { chain: 'A' }, visible: false },
+    });
+    expect((ctx.setVisibility as ReturnType<typeof vi.fn>).mock.calls[0][1]).toBe(false);
+  });
+
+  it('toggle-visibility rejects a missing/non-boolean visible', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'toggle-visibility',
+      input: { selection: { chain: 'A' } },
+    });
+    expect(errorOf(res).code).toBe('invalid_input');
+  });
+
+  it('measure-distance returns the centroid distance and calls no port member', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'measure-distance',
+      input: { from: { chain: 'A', residues: [1], numbering: 'auth' }, to: { chain: 'A', residues: [3], numbering: 'auth' } },
+    });
+    expect(res.ok).toBe(true);
+    if (res.ok) expect((res.data as { distanceAngstrom: number }).distanceAngstrom).toBeCloseTo(4.5, 6);
+    expect(ctx.setRepresentation).not.toHaveBeenCalled();
+    expect(ctx.setColor).not.toHaveBeenCalled();
+    expect(ctx.setVisibility).not.toHaveBeenCalled();
+    expect(ctx.addLabel).not.toHaveBeenCalled();
+  });
+
+  it('measure-distance returns empty_selection when an end matches nothing', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'measure-distance',
+      input: { from: { chain: 'A' }, to: { chain: 'Z' } },
+    });
+    expect(errorOf(res).code).toBe('empty_selection');
+  });
+
+  it('add-label forwards the text', async () => {
+    const ctx = fakeContext();
+    await createExecutor(ctx).dispatch({
+      name: 'add-label',
+      input: { selection: { chain: 'A' }, text: 'chain A' },
+    });
+    expect((ctx.addLabel as ReturnType<typeof vi.fn>).mock.calls[0][1]).toBe('chain A');
+  });
+
+  it('add-label rejects empty text', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'add-label',
+      input: { selection: { chain: 'A' }, text: '' },
+    });
+    expect(errorOf(res).code).toBe('invalid_input');
+  });
+
+  it('the cluster reports no_structure when none is loaded', async () => {
+    const ctx = fakeContext({ getStructure: () => undefined });
+    const res = await createExecutor(ctx).dispatch({
+      name: 'set-representation',
+      input: { selection: { chain: 'A' }, type: 'cartoon' },
+    });
+    expect(errorOf(res).code).toBe('no_structure');
+  });
+
+  it('reports internal_error when a mutator port member rejects', async () => {
+    // The port is now async + awaited, so a failed GPU op surfaces as a reported
+    // error rather than a silent ok() (findings 1/7).
+    const ctx = fakeContext({ setRepresentation: vi.fn(async () => { throw new Error('gpu boom'); }) });
+    const res = await createExecutor(ctx).dispatch({
+      name: 'set-representation', input: { selection: { chain: 'A' }, type: 'cartoon' },
+    });
+    expect(errorOf(res).code).toBe('internal_error');
   });
 });

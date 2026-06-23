@@ -116,3 +116,68 @@ export interface AnthropicToolUse {
   name: string;
   input: Record<string, unknown>;
 }
+
+// ── Appearance (set-representation / set-color) ─────────────────────────────
+
+/**
+ * The Mol* representation types van-der-view exposes — how a selection is drawn.
+ * cartoon = ribbon/helix schematic; ball-and-stick = atoms+bonds; spacefill =
+ * van der Waals spheres; molecular-surface / gaussian-surface = a smooth surface;
+ * point / line = lightweight wireframe; ellipsoid = anisotropic thermal ellipsoids.
+ */
+export const REPRESENTATION_TYPES = [
+  'cartoon', 'ball-and-stick', 'spacefill', 'molecular-surface',
+  'gaussian-surface', 'point', 'line', 'ellipsoid',
+] as const;
+export type RepresentationType = (typeof REPRESENTATION_TYPES)[number];
+
+/**
+ * Built-in, data-driven color schemes (the alternative to a single solid color).
+ * 'element' = by atom type (CPK); 'chain' = a distinct color per chain;
+ * 'residue-index' = rainbow N→C; 'secondary-structure' = helix/sheet/coil;
+ * 'b-factor' = by atomic uncertainty/flexibility; 'hydrophobicity'; 'sequence-id'.
+ */
+export const COLOR_SCHEMES = [
+  'element', 'chain', 'residue-index', 'secondary-structure',
+  'b-factor', 'hydrophobicity', 'sequence-id',
+] as const;
+export type ColorScheme = (typeof COLOR_SCHEMES)[number];
+
+/** Change how a selection is drawn. */
+export interface SetRepresentationInput {
+  selection: Selection;
+  type: RepresentationType;
+}
+
+/**
+ * Recolor a selection. Exactly one of `scheme` (data-driven) or `color` (a single
+ * hex like "#ff0000") is required — enforced by the executor, not the JSON Schema.
+ */
+export interface SetColorInput {
+  selection: Selection;
+  scheme?: ColorScheme;
+  color?: string;
+}
+
+/** Show or hide a selection. */
+export interface ToggleVisibilityInput {
+  selection: Selection;
+  visible: boolean;
+}
+
+/** Measure the distance between the geometric centers of two selections. */
+export interface MeasureDistanceInput {
+  from: Selection;
+  to: Selection;
+}
+
+/** The data payload returned in CommandResult for a successful measure-distance. */
+export interface MeasureDistanceResult {
+  distanceAngstrom: number;
+}
+
+/** Place a 3D text label at the center of a selection. */
+export interface AddLabelInput {
+  selection: Selection;
+  text: string;
+}

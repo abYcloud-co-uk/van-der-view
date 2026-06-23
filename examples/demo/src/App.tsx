@@ -6,6 +6,7 @@ import { StepperPanel } from './panels/StepperPanel';
 import { PasteToolUsePanel } from './panels/PasteToolUsePanel';
 import { XrPanel } from './panels/XrPanel';
 import { TrajectoryPanel } from './panels/TrajectoryPanel';
+import { RepresentationPanel } from './panels/RepresentationPanel';
 
 export function App() {
   return (
@@ -16,6 +17,7 @@ export function App() {
         <LoadPanel />
         <TrajectoryPanel />
         <CommandsPanel />
+        <RepresentationPanel />
         <SceneContextPanel />
         <StepperPanel />
         <PasteToolUsePanel />
