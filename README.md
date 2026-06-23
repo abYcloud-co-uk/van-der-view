@@ -3,8 +3,9 @@
 > A headless React library that lets an AI agent drive a [Mol\*](https://github.com/molstar/molstar)
 > 3D molecular view through a small, standardized JSON command schema.
 
-**Status:** 🚧 *Design phase.* The architecture and API are locked, but no library
-code has been published yet. The design lives in [`wiki/`](wiki/) and
+**Status:** The v1 runtime and the trajectory/playback cluster are implemented,
+tested (116 tests), and GPU-verified (sans WebXR). Packaging has landed; the first
+org **GitHub Packages** release is pending. Design notes live in [`wiki/`](wiki/) and
 [`docs/superpowers/specs/`](docs/superpowers/specs/).
 
 ## Install
