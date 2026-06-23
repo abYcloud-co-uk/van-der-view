@@ -55,15 +55,25 @@ cores have all landed** (`src/`):
   error codes, and a demo `TrajectoryPanel`. Off-GPU logic is Node-tested (incl. a pure-Node
   frameCount/mismatch spike); the adapter (molstar `loadTrajectory`/`AnimateModelIndex`) is
   typecheck-gated + GPU-verified. Suite now **116 tests**. See `wiki/pages/molstar-trajectories.md`.
+- **Packaging** (merged — PR #19): the no-build library is now a buildable, publishable **ESM package**
+  `@abycloud-co-uk/van-der-view` on the org **GitHub Packages** registry. tsup dual-entry build
+  (`dist/index.js` = the `.` agent-side/molstar-free export, `dist/browser.js` = `./browser`), with
+  `molstar` an **optional** peer + `react`/`react-dom` **required** peers, and a `verify:package`
+  release gate (typecheck→test→build→publint→attw→molstar-free guard→dist smoke) that `prepublishOnly`
+  runs. Publish is a Release-triggered workflow using `GITHUB_TOKEN`. See `wiki/pages/packaging.md`.
 
-So the v1 runtime + the first post-v1 cluster are complete and GPU-validated (sans XR). Next
-(`docs/superpowers/plans/`): **packaging** (build + the package `exports` split between
-`src/index.ts` and `src/browser.ts`), the **v1.1 representation cluster** (`highlight.style` +
-`color`/`set-representation`/`load-scene`/`toggle-xr` — reconcile the pre-existing open PR #11
-first), and **trajectory follow-ups** (in-XR playback, palindrome/trim/multi-trajectory).
+So the v1 runtime + the first post-v1 cluster are complete and GPU-validated (sans XR), and the library
+is now buildable/publishable. Next (`docs/superpowers/plans/`): the **v1.1 representation cluster**
+(`highlight.style` + `color`/`set-representation`/`load-scene`/`toggle-xr` — reconcile the pre-existing
+open PR #11 first), and **trajectory follow-ups** (in-XR playback, palindrome/trim/multi-trajectory).
+A **public npm** release is the packaging follow-up (deferred to a stable version; GitHub Packages
+needs auth even for public packages).
 
 Commands:
 - `pnpm test` — run the Vitest suite (`pnpm test:watch` to watch)
 - `pnpm typecheck` — `tsc --noEmit`
+- `pnpm build` — tsup → `dist/` (ESM, `.` + `./browser` entries, `.d.ts`)
+- `pnpm verify:package` — full release gate (typecheck→test→build→publint→attw→molstar-free guard→dist smoke)
 
-No build step yet (tests run on TS source via Vitest); packaging is a later plan.
+`pnpm test`/`pnpm typecheck` run on TS source — no build needed for tests. The published package is
+built by `pnpm build` (tsup); `dist/` is gitignored. See `wiki/pages/packaging.md`.
