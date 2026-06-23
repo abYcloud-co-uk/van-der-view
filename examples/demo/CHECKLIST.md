@@ -41,8 +41,14 @@ Needs a locally-served topology + coordinate file. The `MD_Data/` folder is giti
 (large, not bundled); serve it and paste the URLs into the **Trajectory** panel:
 
 ```bash
-npx serve MD_Data/5GGS      # prints an origin, e.g. http://localhost:3000
+npx serve --cors MD_Data/5GGS    # prints an origin, e.g. http://localhost:3000
 ```
+
+> **`--cors` is required:** the demo (a Vite dev origin) fetches these files cross-origin, so the
+> static server must send `Access-Control-Allow-Origin`. Plain `npx serve` (no `--cors`) returns
+> `200` but the browser blocks the body → the load fails with `internal_error: Invalid data cell`.
+> Also: if the printed port isn't `3000` (it's taken), update **both** URL fields in the panel to
+> the actual port — the coordinates field too, not just the topology.
 
 1. **Load trajectory** — paste the `*_nowat.pdb` (topology) + `*_nowat.xtc` (coordinates)
    URLs, formats pdb/xtc → "Load trajectory". The complex renders and the readout shows a
