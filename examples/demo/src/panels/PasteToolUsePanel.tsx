@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useMolView } from 'van-der-view/browser';
-import { adapters } from 'van-der-view';
-import type { Command, CommandResult } from 'van-der-view';
+import { useMolView } from '@abycloud-co-uk/van-der-view/browser';
+import { adapters } from '@abycloud-co-uk/van-der-view';
+import type { Command, CommandResult } from '@abycloud-co-uk/van-der-view';
 import { Panel, ResultView } from '../ui';
 
 const SAMPLE = JSON.stringify(

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useMolView } from 'van-der-view/browser';
+import { useMolView } from '@abycloud-co-uk/van-der-view/browser';
 import { Panel } from '../ui';
 
 export function XrPanel() {

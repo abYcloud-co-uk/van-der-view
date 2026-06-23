@@ -1,4 +1,4 @@
-import { MolViewCanvas } from 'van-der-view/browser';
+import { MolViewCanvas } from '@abycloud-co-uk/van-der-view/browser';
 import { LoadPanel } from './panels/LoadPanel';
 import { CommandsPanel } from './panels/CommandsPanel';
 import { SceneContextPanel } from './panels/SceneContextPanel';
