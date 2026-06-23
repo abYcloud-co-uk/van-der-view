@@ -9,17 +9,9 @@ import { AnimateModelIndex } from 'molstar/lib/mol-plugin-state/animation/built-
 import type { LoadTrajectoryParams } from 'molstar/lib/extensions/plugin/loaders';
 import type { ResolvedTrajectory } from '../resolve-coordinates';
 import { Color } from 'molstar/lib/mol-util/color';
-import type { ColorTheme } from 'molstar/lib/mol-theme/color';
 import { OrderedSet } from 'molstar/lib/mol-data/int';
 import { setSubtreeVisibility } from 'molstar/lib/mol-plugin/behavior/static/state';
-import {
-  setStructureOverpaint,
-  clearStructureOverpaint,
-} from 'molstar/lib/mol-plugin-state/helpers/structure-overpaint';
-import {
-  setStructureTransparency,
-  clearStructureTransparency,
-} from 'molstar/lib/mol-plugin-state/helpers/structure-transparency';
+import { setStructureTransparency } from 'molstar/lib/mol-plugin-state/helpers/structure-transparency';
 import type { StateObjectSelector } from 'molstar/lib/mol-state';
 import { ExecutorError } from '../errors';
 import type { ColorScheme, RepresentationType } from '../types';
@@ -52,26 +44,49 @@ function chainsOf(structure: Structure): string[] {
   return chains;
 }
 
-/** Agent color-scheme names → Mol* color-theme registry names. The two flagged
- *  with ⚠ are best-guess and must be confirmed in the demo (spike 2). */
+/** Agent color-scheme names → Mol* color-theme registry names (all GPU-verified as real
+ *  registered providers). NOTE: `residue-index` and `sequence-id` both map to Mol*'s
+ *  `sequence-id` (rainbow N→C) — Mol* has no distinct residue-index theme, so the two
+ *  render identically (a documented v1.1a equivalence, not a bug). */
 const SCHEME_TO_THEME: Record<ColorScheme, string> = {
   element: 'element-symbol',
   chain: 'chain-id',
-  'residue-index': 'sequence-id', // ⚠ confirm against the color-theme registry
+  'residue-index': 'sequence-id',
   'secondary-structure': 'secondary-structure',
-  'b-factor': 'uncertainty', // ⚠ Mol*'s B-factor theme is named 'uncertainty'
+  'b-factor': 'uncertainty', // Mol*'s B-factor theme is named 'uncertainty'
   hydrophobicity: 'hydrophobicity',
   'sequence-id': 'sequence-id',
 };
 
-/** A compact, stable cache key for a loci. Built from each unit id plus the index
- *  set's bounds + cardinality (not the full materialized index array — finding 10).
- *  Caveat: two *different* same-cardinality selections sharing the same [start,end)
- *  bounds collide to one key — acceptable for the v1.1a single-selection demo. */
+/** A stable, collision-free cache key for a loci: each unit id plus its full element
+ *  index list. Full-identity (not bounds+size) so two *different* same-cardinality
+ *  selections over the same [start,end) range never collide onto one component — the
+ *  per-selection component model relies on this key uniquely identifying a selection. */
 function lociKey(loci: StructureElement.Loci): string {
   return loci.elements
-    .map((e) => `${e.unit.id}:${OrderedSet.start(e.indices)}-${OrderedSet.end(e.indices)}:${OrderedSet.size(e.indices)}`)
+    .map((e) => {
+      const n = OrderedSet.size(e.indices);
+      const idx = new Array<number>(n);
+      for (let i = 0; i < n; i++) idx[i] = OrderedSet.getAt(e.indices, i);
+      return `${e.unit.id}:${idx.join(',')}`;
+    })
     .join('|');
+}
+
+/** The default draw style for a set-color on a selection with no explicit representation
+ *  yet: mirror the `default` preset's split — polymer → cartoon, everything else →
+ *  ball-and-stick — so "color chain A" yields a colored cartoon, not a dense whole-chain
+ *  ball-and-stick (the original v1 complaint). A mixed polymer+ligand selection collapses
+ *  to one style (cartoon if any polymer) — a documented v1.1a limitation. */
+function defaultReprFor(loci: StructureElement.Loci): RepresentationType {
+  const loc = StructureElement.Location.create(loci.structure);
+  for (const e of loci.elements) {
+    if (OrderedSet.size(e.indices) === 0) continue;
+    loc.unit = e.unit;
+    loc.element = e.unit.elements[OrderedSet.getAt(e.indices, 0)];
+    if (StructureProperties.entity.type(loc) === 'polymer') return 'cartoon';
+  }
+  return 'ball-and-stick';
 }
 
 /**
@@ -112,10 +127,25 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
   }
 
   /** The preset's structure components (`default` preset from load-structure). The
-   *  overpaint/transparency helpers operate on these in place, so v1.1a commands
-   *  modify the preset's coverage rather than layering an independent component. */
+   *  transparency helper hides their coverage of a styled selection, so the vdv
+   *  component is the only thing drawn for those atoms (no double-draw). */
   const presetComponents = () =>
     plugin.managers.structure.hierarchy.current.structures[0]?.components ?? [];
+
+  /** Transform refs of every vdv component we own — excluded from preset-hiding so
+   *  transparency never targets (and hides) a representation we just drew. */
+  const currentVdvRefs = (): Set<string> =>
+    new Set([...components.values()].map((e) => e.component?.ref).filter((r): r is string => !!r));
+
+  /** Hide the preset's draw of `loci` (per-loci transparency = 1) so an owned vdv
+   *  component is the only thing rendered for those atoms. Targets preset components
+   *  only, never our own vdv components. */
+  async function hidePresetCoverage(loci: StructureElement.Loci): Promise<void> {
+    const vdvRefs = currentVdvRefs();
+    const presetOnly = presetComponents().filter((c) => !vdvRefs.has(c.cell.transform.ref));
+    if (presetOnly.length === 0) return;
+    await setStructureTransparency(plugin, presetOnly, 1, async () => loci);
+  }
 
   /** Get-or-create the per-selection component for a loci. */
   async function componentFor(
@@ -317,56 +347,49 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
     setRepresentation(loci, type) {
       const key = lociKey(loci);
       return serialize(key, async () => {
-        // Create-or-reuse the vdv component, (re)apply the single representation, then
-        // hide the preset's draw of those atoms so only the new style shows (finding 2).
+        // Own a vdv component for this selection, (re)draw it with the new type while keeping
+        // any color the selection already carries, then hide the preset's draw of those atoms
+        // so only our style shows. Color persists because it lives on the entry, not the preset.
         const component = await componentFor(loci);
         if (!component) return;
         await applyStyle(key, type, components.get(key)?.color);
-        // The vdv components WE created (now in the hierarchy) must NOT be transparency-hidden —
-        // hiding them would hide the very representation we just drew. Target the preset coverage
-        // ONLY: preset components MINUS every tracked vdv component (by its transform ref).
-        const vdvRefs = new Set(
-          [...components.values()].map((e) => e.component?.ref).filter((r): r is string => !!r),
-        );
-        const presetOnly = presetComponents().filter((c) => !vdvRefs.has(c.cell.transform.ref));
-        await setStructureTransparency(plugin, presetOnly, 1, async () => loci);
+        await hidePresetCoverage(loci);
       });
     },
 
     setColor(loci, color) {
       const key = lociKey(loci);
       return serialize(key, async () => {
-        if ('hex' in color) {
-          // Solid color: overpaint the selection on the preset's existing representations.
-          // clearStructureOverpaint clears ALL overpaint on the preset comps (no per-loci
-          // scope in molstar) — acceptable v1.1a single-selection simplification.
-          const comps = presetComponents();
-          await clearStructureOverpaint(plugin, comps);
-          await setStructureOverpaint(plugin, comps, Color.fromHexStyle(color.hex), async () => loci);
-        } else {
-          // Data-driven scheme: structure-wide retheme (schemes are not per-sub-selection
-          // in molstar). The selection is accepted but the recolor covers the whole structure.
-          // The JSDoc on UpdateThemeParams.color sanctions a cast for arbitrary theme names.
-          await plugin.managers.structure.component.updateRepresentationsTheme(presetComponents(), {
-            color: SCHEME_TO_THEME[color.scheme] as ColorTheme.BuiltIn,
-          });
-        }
+        // Color lives ON the per-selection vdv component (hex → uniform colorParams, scheme →
+        // a color theme scoped to the component's atoms) — NOT as overpaint/retheme of the
+        // preset. So it persists across set-representation, schemes apply per-selection rather
+        // than structure-wide, and coloring one selection never disturbs another. With no prior
+        // representation, default to a natural style for the selection's contents.
+        const component = await componentFor(loci);
+        if (!component) return;
+        const type = components.get(key)?.reprType ?? defaultReprFor(loci);
+        await applyStyle(key, type, color);
+        await hidePresetCoverage(loci);
       });
     },
 
     setVisibility(loci, visible) {
       const key = lociKey(loci);
       return serialize(key, async () => {
-        if (visible) {
-          // Restore: clearStructureTransparency clears ALL transparency on the preset comps
-          // (no per-loci scope) — acceptable v1.1a single-selection simplification.
-          await clearStructureTransparency(plugin, presetComponents());
-        } else {
-          await setStructureTransparency(plugin, presetComponents(), 1, async () => loci);
-        }
-        // Also toggle any vdv component for this loci so a re-styled selection hides/shows too.
         const component = components.get(key)?.component;
-        if (component) setSubtreeVisibility(plugin.state.data, component.ref, !visible);
+        if (component) {
+          // Owned selection: the preset's coverage is already hidden and the vdv component
+          // draws it, so just toggle that component (setSubtreeVisibility: true = hidden).
+          setSubtreeVisibility(plugin.state.data, component.ref, !visible);
+        } else {
+          // Unstyled selection: hide/show the preset's draw of these atoms via per-loci
+          // transparency (1 = hidden, 0 = restored). A later 0-layer shadows the prior 1-layer
+          // for the same atoms (Transparency.merge), so restore is scoped — other selections
+          // (and other hidden selections) are untouched, no clear-all.
+          const vdvRefs = currentVdvRefs();
+          const presetOnly = presetComponents().filter((c) => !vdvRefs.has(c.cell.transform.ref));
+          await setStructureTransparency(plugin, presetOnly, visible ? 0 : 1, async () => loci);
+        }
       });
     },
 
