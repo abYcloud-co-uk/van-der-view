@@ -26,3 +26,4 @@ distilled, mutable knowledge; `raw/` is the permanent record it rests on.
 | 0009 | [0009-plan3a-browser-runtime-core-2026-06-22.md](0009-plan3a-browser-runtime-core-2026-06-22.md) | dev session 2026-06-22 (Plan 3a browser runtime core implemented + merged, PR #12) | 2026-06-22 |
 | 0010 | [0010-molstar-trajectory-loading-2026-06-22.md](0010-molstar-trajectory-loading-2026-06-22.md) | dev session 2026-06-22 (molstar 5.10.1 source inspection — trajectory/topology+coordinates loading) | 2026-06-22 |
 | 0011 | [0011-plan3b-demo-merged-verified-2026-06-22.md](0011-plan3b-demo-merged-verified-2026-06-22.md) | dev session 2026-06-22 (Plan 3b Vite demo merged PR #14 + manual GPU verification, except WebXR) | 2026-06-22 |
+| 0012 | [0012-trajectory-cluster-merged-2026-06-23.md](0012-trajectory-cluster-merged-2026-06-23.md) | dev session 2026-06-23 (trajectory + playback cluster merged PR #17 + GPU-verified; external-review fix wave) | 2026-06-23 |

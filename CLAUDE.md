@@ -43,17 +43,24 @@ cores have all landed** (`src/`):
   typecheck-gated and verified by hand in Plan 3b. v1 schema cut: `highlight.style`
   deferred to v1.1; `focus.zoomOut` is a numeric factor.
 - **Vite demo** (Plan 3b, merged — PR #14): a client-only manual-verification app at
-  `examples/demo/` (six panels, no LLM/chat) that drives the real adapter on a GPU;
-  consumes the lib via Vite alias to TS source. Suite now **90 tests** (added
-  `MolViewXR.subscribeSupported`; `src/browser.ts` also re-exports the `SceneContext`
-  type). **GPU-verified** for all non-XR functionality; **WebXR is the one piece still
-  untested** (no headset) and deferred.
+  `examples/demo/` (panels, no LLM/chat) that drives the real adapter on a GPU; consumes the
+  lib via Vite alias to TS source (added `MolViewXR.subscribeSupported`; `src/browser.ts` also
+  re-exports the `SceneContext` type). **GPU-verified** for all non-XR functionality; **WebXR
+  is the one piece still untested** (no headset) and deferred.
+- **Trajectory + playback cluster** (merged — PR #17, GPU-verified 2026-06-23): four commands
+  (`load-trajectory`/`play-trajectory`/`stop-trajectory`/`set-frame`) that load an MD topology +
+  a separate binary coordinate stream and drive frame playback. Adds the molstar-free
+  `resolveCoordinates` host hook (symmetric with `resolveStructure`), four `ExecutorContext`
+  port members + a `SceneContext.trajectory` read-model, the `no_trajectory`/`trajectory_mismatch`
+  error codes, and a demo `TrajectoryPanel`. Off-GPU logic is Node-tested (incl. a pure-Node
+  frameCount/mismatch spike); the adapter (molstar `loadTrajectory`/`AnimateModelIndex`) is
+  typecheck-gated + GPU-verified. Suite now **116 tests**. See `wiki/pages/molstar-trajectories.md`.
 
-So the v1 runtime is complete and visually validated (sans XR). Next
+So the v1 runtime + the first post-v1 cluster are complete and GPU-validated (sans XR). Next
 (`docs/superpowers/plans/`): **packaging** (build + the package `exports` split between
-`src/index.ts` and `src/browser.ts`), and — post-v1 — a **trajectory + playback command
-cluster** for MD data (see `wiki/pages/molstar-trajectories.md`) and the **v1.1
-representation cluster** (`highlight.style` + `color`/`set-representation`/`load-scene`/`toggle-xr`).
+`src/index.ts` and `src/browser.ts`), the **v1.1 representation cluster** (`highlight.style` +
+`color`/`set-representation`/`load-scene`/`toggle-xr` — reconcile the pre-existing open PR #11
+first), and **trajectory follow-ups** (in-XR playback, palindrome/trim/multi-trajectory).
 
 Commands:
 - `pnpm test` — run the Vitest suite (`pnpm test:watch` to watch)

@@ -3,9 +3,9 @@ title: Testing Strategy
 slug: testing-strategy
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0004-testing-strategy-decisions-2026-06-18.md, raw/0007-node-structure-spike-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0011-plan3b-demo-merged-verified-2026-06-22.md, "docs/superpowers/specs/2026-06-18-testing-strategy-design.md"]
-updated: 2026-06-22
-links: [agent-command-flow, command-schema, molstar-api, headless-react, molstar-webxr]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0004-testing-strategy-decisions-2026-06-18.md, raw/0007-node-structure-spike-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0011-plan3b-demo-merged-verified-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md, "docs/superpowers/specs/2026-06-18-testing-strategy-design.md"]
+updated: 2026-06-23
+links: [agent-command-flow, command-schema, molstar-api, headless-react, molstar-webxr, molstar-trajectories]
 ---
 
 # Testing Strategy
@@ -74,6 +74,16 @@ A standalone **Vite** app at `examples/demo/`, client-only, **no LLM/chat** (src
 **Fixtures:** **1CRN** (crambin, 46 res, chain A, no ligand) bundled for selection
 tests + basic presets; **1HSG** (HIV protease + indinavir) fetched by id for the
 focus-ligand preset (src: raw/0004).
+
+### Trajectory cluster (PR #17, src: raw/0012)
+
+Same split: the dispatch/validation/error-mapping/`resolveCoordinates` logic is **Node-unit-tested**
+via the fake port, plus a **pure-Node spike** (`test/trajectory-node-spike.test.ts`) that proves
+`frameCount` + the atom-count-mismatch throw with an **in-memory `Coordinates`** (no binary XTC
+fixture). The real adapter (molstar `loadTrajectory`/`AnimateModelIndex`/`ModelFromTrajectory`) is
+typecheck-gated + **GPU-verified** (2026-06-23) via the demo `TrajectoryPanel` — load/play/stop/seek,
+and a topology/coordinate mismatch keeps the prior scene. Suite = **116 tests**. The demo serves the
+gitignored `MD_Data/` over `npx serve --cors` ([[molstar-trajectories]]).
 
 ## Coverage
 No numeric % gate initially — a **per-command checklist** instead (src: raw/0004):
