@@ -7,6 +7,31 @@
 code has been published yet. The design lives in [`wiki/`](wiki/) and
 [`docs/superpowers/specs/`](docs/superpowers/specs/).
 
+## Install
+
+Published to the org's **GitHub Packages** registry. In the consuming project add an
+`.npmrc` mapping the scope to GitHub Packages and authenticating with a GitHub token
+that has `read:packages`:
+
+```
+@abycloud-co-uk:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+Then install (provide your own `molstar` and `react` peers for the browser entry):
+
+```bash
+npm install @abycloud-co-uk/van-der-view
+```
+
+- **Agent-side** (no molstar needed):
+  `import { commands, tools, adapters } from '@abycloud-co-uk/van-der-view'`
+- **Browser-side** (needs the `molstar` + `react`/`react-dom` peers):
+  `import { MolViewProvider, MolViewCanvas, useMolView } from '@abycloud-co-uk/van-der-view/browser'`
+
+> GitHub Packages' npm registry requires authentication even for public packages. A
+> token-free public npm release is planned for a stable version.
+
 ## What it is
 
 van-der-view is the bridge between an **LLM chatbot** and the **Mol\*** molecular
