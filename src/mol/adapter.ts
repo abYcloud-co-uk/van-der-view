@@ -322,7 +322,14 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
         const component = await componentFor(loci);
         if (!component) return;
         await applyStyle(key, type, components.get(key)?.color);
-        await setStructureTransparency(plugin, presetComponents(), 1, async () => loci);
+        // The vdv components WE created (now in the hierarchy) must NOT be transparency-hidden —
+        // hiding them would hide the very representation we just drew. Target the preset coverage
+        // ONLY: preset components MINUS every tracked vdv component (by its transform ref).
+        const vdvRefs = new Set(
+          [...components.values()].map((e) => e.component?.ref).filter((r): r is string => !!r),
+        );
+        const presetOnly = presetComponents().filter((c) => !vdvRefs.has(c.cell.transform.ref));
+        await setStructureTransparency(plugin, presetOnly, 1, async () => loci);
       });
     },
 
