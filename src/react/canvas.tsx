@@ -36,6 +36,7 @@ export function MolViewCanvas(props: HTMLAttributes<HTMLDivElement>) {
         container: containerRef.current,
         plugin,
         resolveStructure: config.resolveStructure,
+        resolveCoordinates: config.resolveCoordinates,
       });
       if (disposed) { view.dispose(); return; }
       created = view;

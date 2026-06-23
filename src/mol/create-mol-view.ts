@@ -3,6 +3,7 @@ import { DefaultPluginSpec } from 'molstar/lib/mol-plugin/spec';
 import type { Command, CommandResult } from '../types';
 import type { SceneContext } from '../context';
 import type { ResolveStructure } from '../resolve-structure';
+import type { ResolveCoordinates } from '../resolve-coordinates';
 import { createExecutor } from '../executor';
 import { molstarExecutorContext } from './adapter';
 import { createXrApi, type MolViewXR } from './xr';
@@ -16,6 +17,8 @@ export interface CreateMolViewOptions {
   plugin?: PluginContext;
   /** Host hook to fetch auth-protected / internal structures. Defaults to RCSB/url/inline. */
   resolveStructure?: ResolveStructure;
+  /** Host hook to fetch a binary coordinate stream for load-trajectory. Defaults to URL passthrough. */
+  resolveCoordinates?: ResolveCoordinates;
 }
 
 /** The mounted viewer handle returned to the host. */
@@ -55,7 +58,10 @@ export async function createMolView(opts: CreateMolViewOptions): Promise<MolView
   }
 
   const ctx = molstarExecutorContext(plugin);
-  const { dispatch } = createExecutor(ctx, { resolveStructure: opts.resolveStructure });
+  const { dispatch } = createExecutor(ctx, {
+    resolveStructure: opts.resolveStructure,
+    resolveCoordinates: opts.resolveCoordinates,
+  });
   const xr = createXrApi(plugin);
   // Snapshot the narrowed (non-undefined) plugin; the returned closures must close over this const, not the reassignable `let`.
   const bound = plugin;

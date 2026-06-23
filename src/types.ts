@@ -57,6 +57,26 @@ export type LoadSource = (typeof LOAD_SOURCES)[number];
 export const STRUCTURE_FORMATS = ['mmcif', 'pdb'] as const;
 export type StructureFormat = (typeof STRUCTURE_FORMATS)[number];
 
+// ── Trajectory coordinates (load-trajectory) ────────────────────────────────
+
+/** Binary per-frame coordinate stream formats van-der-view loads, paired with a topology. */
+export const COORDINATE_FORMATS = ['xtc', 'trr', 'dcd', 'nctraj'] as const;
+export type CoordinateFormat = (typeof COORDINATE_FORMATS)[number];
+
+/**
+ * Where load-trajectory pulls a coordinate stream from. Agent-facing: url only — binary
+ * streams can't be text-inlined; raw bytes arrive via a host resolveCoordinates override.
+ */
+export const COORDINATE_SOURCES = ['url'] as const;
+export type CoordinateSource = (typeof COORDINATE_SOURCES)[number];
+
+/** Normalized "coordinates" field of the load-trajectory command. */
+export interface CoordinatesInput {
+  source: CoordinateSource;
+  url?: string;
+  format: CoordinateFormat;
+}
+
 // ── Command specs + JSON Schema ─────────────────────────────────────────────
 
 /** A minimal JSON Schema object — enough for tool input schemas. */

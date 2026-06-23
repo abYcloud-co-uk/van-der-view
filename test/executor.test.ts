@@ -5,6 +5,7 @@ import { PDB_TINY, buildStructureFromPDB } from './fixtures/structures';
 import type { ExecutorContext, SceneContext } from '../src/context';
 import { createExecutor } from '../src/executor';
 import type { CommandResult } from '../src/types';
+import { ExecutorError } from '../src/errors';
 
 let structure: Structure | undefined;
 beforeAll(async () => { structure = await buildStructureFromPDB(PDB_TINY); });
@@ -19,9 +20,18 @@ function fakeContext(overrides: Partial<ExecutorContext> = {}) {
     focus: vi.fn((_loci: SE.Loci) => {}),
     resetCamera: vi.fn(),
     getSceneContext: () => scene,
+    loadTrajectory: vi.fn(async () => {}),
+    playTrajectory: vi.fn(),
+    stopTrajectory: vi.fn(),
+    setFrame: vi.fn(),
     ...overrides,
   };
   return ctx;
+}
+
+/** A scene whose getSceneContext reports a loaded trajectory of `frameCount` frames. */
+function trajectoryScene(frameCount: number): SceneContext {
+  return { loaded: true, structures: [{ chains: ['A'] }], trajectory: { frameCount, currentFrame: 0, isPlaying: false } };
 }
 
 /** Narrow a CommandResult to its error (throws if it was ok). */
@@ -237,5 +247,141 @@ describe('createExecutor — hardening (review fixes)', () => {
     });
     expect(errorOf(res).code).toBe('internal_error');
     expect(ctx.loadStructure).not.toHaveBeenCalled();
+  });
+});
+
+describe('createExecutor — trajectory cluster', () => {
+  it('resolves topology + coordinates and calls loadTrajectory with both', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'load-trajectory',
+      input: {
+        topology: { source: 'url', url: 'https://x/top.pdb', format: 'pdb' },
+        coordinates: { source: 'url', url: 'https://x/c.xtc', format: 'xtc' },
+      },
+    });
+    expect(res.ok).toBe(true);
+    expect(ctx.loadTrajectory).toHaveBeenCalledWith({
+      topology: { url: 'https://x/top.pdb', format: 'pdb' },
+      coordinates: { url: 'https://x/c.xtc', format: 'xtc', isBinary: true },
+    });
+  });
+
+  it('uses a host resolveCoordinates override', async () => {
+    const ctx = fakeContext();
+    const bytes = new Uint8Array([1, 2, 3]);
+    const resolveCoordinates = vi.fn(async () => ({ data: bytes, format: 'xtc' as const, isBinary: true as const }));
+    const res = await createExecutor(ctx, { resolveCoordinates }).dispatch({
+      name: 'load-trajectory',
+      input: {
+        topology: { source: 'inline', data: 'TOPDATA', format: 'pdb' },
+        coordinates: { source: 'url', url: 'https://x/c.xtc', format: 'xtc' },
+      },
+    });
+    expect(res.ok).toBe(true);
+    expect(resolveCoordinates).toHaveBeenCalledOnce();
+    expect(ctx.loadTrajectory).toHaveBeenCalledWith({
+      topology: { data: 'TOPDATA', format: 'pdb' },
+      coordinates: { data: bytes, format: 'xtc', isBinary: true },
+    });
+  });
+
+  it('returns invalid_input when topology is missing', async () => {
+    const res = await createExecutor(fakeContext()).dispatch({
+      name: 'load-trajectory',
+      input: { coordinates: { source: 'url', url: 'https://x/c.xtc', format: 'xtc' } },
+    });
+    expect(errorOf(res).code).toBe('invalid_input');
+  });
+
+  it('returns invalid_input when coordinates is missing', async () => {
+    const res = await createExecutor(fakeContext()).dispatch({
+      name: 'load-trajectory',
+      input: { topology: { source: 'pdb', id: '1crn' } },
+    });
+    expect(errorOf(res).code).toBe('invalid_input');
+  });
+
+  it('surfaces a trajectory_mismatch thrown by the adapter', async () => {
+    const ctx = fakeContext({
+      loadTrajectory: vi.fn(async () => {
+        throw new ExecutorError('trajectory_mismatch', 'Frame element count mismatch, got 7 but expected 10.');
+      }),
+    });
+    const res = await createExecutor(ctx).dispatch({
+      name: 'load-trajectory',
+      input: {
+        topology: { source: 'pdb', id: '1crn' },
+        coordinates: { source: 'url', url: 'https://x/c.xtc', format: 'xtc' },
+      },
+    });
+    expect(errorOf(res).code).toBe('trajectory_mismatch');
+  });
+
+  it('returns no_trajectory for play/stop/set-frame when none is loaded', async () => {
+    const exec = createExecutor(fakeContext()); // default scene has no trajectory
+    expect(errorOf(await exec.dispatch({ name: 'play-trajectory', input: {} })).code).toBe('no_trajectory');
+    expect(errorOf(await exec.dispatch({ name: 'stop-trajectory', input: {} })).code).toBe('no_trajectory');
+    expect(errorOf(await exec.dispatch({ name: 'set-frame', input: { index: 999 } })).code).toBe('no_trajectory');
+  });
+
+  it('plays with fps/loop forwarded to the port', async () => {
+    const ctx = fakeContext({ getSceneContext: () => trajectoryScene(309) });
+    const res = await createExecutor(ctx).dispatch({
+      name: 'play-trajectory',
+      input: { fps: 15, loop: false },
+    });
+    expect(res.ok).toBe(true);
+    expect(ctx.playTrajectory).toHaveBeenCalledWith({ fps: 15, loop: false });
+  });
+
+  it('plays with undefined options when none are given', async () => {
+    const ctx = fakeContext({ getSceneContext: () => trajectoryScene(309) });
+    await createExecutor(ctx).dispatch({ name: 'play-trajectory', input: {} });
+    expect(ctx.playTrajectory).toHaveBeenCalledWith(undefined);
+  });
+
+  it('stops the loaded trajectory', async () => {
+    const ctx = fakeContext({ getSceneContext: () => trajectoryScene(309) });
+    const res = await createExecutor(ctx).dispatch({ name: 'stop-trajectory', input: {} });
+    expect(res.ok).toBe(true);
+    expect(ctx.stopTrajectory).toHaveBeenCalledOnce();
+  });
+
+  it('seeks to a valid frame index', async () => {
+    const ctx = fakeContext({ getSceneContext: () => trajectoryScene(309) });
+    const res = await createExecutor(ctx).dispatch({ name: 'set-frame', input: { index: 42 } });
+    expect(res.ok).toBe(true);
+    expect(ctx.setFrame).toHaveBeenCalledWith(42);
+  });
+
+  it('rejects an out-of-range frame index with invalid_input', async () => {
+    const ctx = fakeContext({ getSceneContext: () => trajectoryScene(309) });
+    const res = await createExecutor(ctx).dispatch({ name: 'set-frame', input: { index: 309 } });
+    expect(errorOf(res).code).toBe('invalid_input');
+    expect(ctx.setFrame).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-integer frame index with invalid_input', async () => {
+    const ctx = fakeContext({ getSceneContext: () => trajectoryScene(309) });
+    const res = await createExecutor(ctx).dispatch({ name: 'set-frame', input: { index: 1.5 } });
+    expect(errorOf(res).code).toBe('invalid_input');
+    expect(ctx.setFrame).not.toHaveBeenCalled();
+  });
+
+  it('rejects play on a single-frame trajectory with invalid_input', async () => {
+    const ctx = fakeContext({ getSceneContext: () => trajectoryScene(1) });
+    const res = await createExecutor(ctx).dispatch({ name: 'play-trajectory', input: {} });
+    expect(errorOf(res).code).toBe('invalid_input');
+    expect(ctx.playTrajectory).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-positive or non-finite fps with invalid_input', async () => {
+    const ctx = fakeContext({ getSceneContext: () => trajectoryScene(309) });
+    for (const fps of [0, -5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const res = await createExecutor(ctx).dispatch({ name: 'play-trajectory', input: { fps } });
+      expect(errorOf(res).code).toBe('invalid_input');
+    }
+    expect(ctx.playTrajectory).not.toHaveBeenCalled();
   });
 });

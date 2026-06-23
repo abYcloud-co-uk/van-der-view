@@ -35,6 +35,43 @@ Open the printed URL. The left pane is the Mol\* canvas; the right column is the
 9. **Error surfacing** — try highlight before loading → an `empty_selection`/`no_structure`
    result line appears (no silent failure).
 
+## Trajectory (MD playback)
+
+Needs a locally-served topology + coordinate file. The `MD_Data/` folder is gitignored
+(large, not bundled); serve it and paste the URLs into the **Trajectory** panel:
+
+```bash
+npx serve --cors MD_Data/5GGS    # prints an origin, e.g. http://localhost:3000
+```
+
+> **`--cors` is required:** the demo (a Vite dev origin) fetches these files cross-origin, so the
+> static server must send `Access-Control-Allow-Origin`. Plain `npx serve` (no `--cors`) returns
+> `200` but the browser blocks the body → the load fails with `internal_error: Invalid data cell`.
+> Also: if the printed port isn't `3000` (it's taken), update **both** URL fields in the panel to
+> the actual port — the coordinates field too, not just the topology.
+
+1. **Load trajectory** — paste the `*_nowat.pdb` (topology) + `*_nowat.xtc` (coordinates)
+   URLs, formats pdb/xtc → "Load trajectory". The complex renders and the readout shows a
+   real `frameCount` (≈309 for the MD_Data systems).
+2. **Play / Stop** — "Play" animates the frames (loops by default); "Stop" halts.
+3. **Seek** — drag the frame slider; the structure jumps to that frame and `currentFrame`
+   follows. **Drag while playing →** playback **stops** and jumps to the dragged frame
+   (the seek halts the animation so it isn't immediately overwritten on the next tick).
+4. **`isPlaying` is live** — after "Stop" (or after a playback ends on its own), the readout's
+   `isPlaying` reads **`false`**. It's read from Mol\*'s animation manager, not a stale local flag.
+5. **A failed load keeps the prior scene** — load a normal structure first (e.g. "Load 1CRN"),
+   then in the Trajectory panel pair a topology with a coordinate file from a *different* system
+   (e.g. **5GGS `.pdb` + 1N8Z `.xtc`** — different atom counts) → a `trajectory_mismatch` error
+   appears **and the previously-loaded structure stays on screen** (the viewer is not blanked).
+
+> **MD_Data chain-id caveat (data, not library):** the `*_interactions.json` files label the
+> antigen chain `Z`, but the `*_nowat` viewer files label it `A`. Use the viewer files' ids
+> when selecting chains.
+
+> **fps validation:** the panel's Play uses `fps: 15`. The library rejects `fps <= 0` / NaN with
+> an `invalid_input` result (a 0 fps would otherwise freeze playback), and rejects `play` on a
+> single-frame trajectory (`frameCount <= 1`, nothing to animate).
+
 ## WebXR
 
 The XR panel enables "Enter XR" only when `xr.isSupported()` is true.

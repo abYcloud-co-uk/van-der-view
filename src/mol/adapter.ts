@@ -1,8 +1,14 @@
 import type { PluginContext } from 'molstar/lib/mol-plugin/context';
 import { StructureElement, StructureProperties, Unit } from 'molstar/lib/mol-model/structure';
-import type { Structure } from 'molstar/lib/mol-model/structure';
+import type { Structure, Trajectory } from 'molstar/lib/mol-model/structure';
 import type { ExecutorContext, FocusOptions, SceneContext } from '../context';
 import type { ResolvedStructure } from '../resolve-structure';
+import { loadTrajectory as loadMolstarTrajectory } from 'molstar/lib/extensions/plugin/loaders';
+import { ModelFromTrajectory } from 'molstar/lib/mol-plugin-state/transforms/model';
+import { AnimateModelIndex } from 'molstar/lib/mol-plugin-state/animation/built-in/model-index';
+import type { LoadTrajectoryParams } from 'molstar/lib/extensions/plugin/loaders';
+import type { ResolvedTrajectory } from '../resolve-coordinates';
+import { ExecutorError } from '../errors';
 
 /** Per-Structure chain-id cache. A Structure is immutable, so its chain list never
  *  changes; the WeakMap auto-evicts when the Structure is GC'd. get-scene-context is
@@ -39,10 +45,29 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
   const getStructure = (): Structure | undefined =>
     plugin.managers.structure.hierarchy.current.structures[0]?.cell.obj?.data;
 
+  /** Tracks the one loaded trajectory: the ModelFromTrajectory node ref + frame count.
+   *  Playback state is read live from the animation manager, not mirrored here. */
+  let traj: { modelRef: string; frameCount: number } | undefined;
+
+  const toModelParam = (t: ResolvedStructure): LoadTrajectoryParams['model'] =>
+    t.url !== undefined
+      ? { kind: 'model-url', url: t.url, format: t.format, isBinary: t.isBinary }
+      : { kind: 'model-data', data: t.data!, format: t.format };
+
+  const toCoordsParam = (c: ResolvedTrajectory['coordinates']): LoadTrajectoryParams['coordinates'] =>
+    c.url !== undefined
+      ? { kind: 'coordinates-url', url: c.url, format: c.format, isBinary: true }
+      // ResolvedCoordinates.data is Uint8Array<ArrayBufferLike>; molstar expects Uint8Array<ArrayBuffer>.
+      // The cast is safe: only callers that supply a plain Uint8Array (never SharedArrayBuffer) reach here.
+      : { kind: 'coordinates-data', data: c.data! as Uint8Array<ArrayBuffer>, format: c.format };
+
   return {
     getStructure,
 
     async loadStructure(resolved: ResolvedStructure): Promise<void> {
+      // Stop any running trajectory animation so it doesn't keep ticking against the cleared scene.
+      await plugin.managers.animation.stop();
+      traj = undefined;
       // load-structure replaces the scene: v1 is single-structure, and every later
       // command reads structures[0], so a prior structure must be cleared first
       // (otherwise a second load would be appended and silently ignored).
@@ -84,13 +109,89 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
 
     getSceneContext(): SceneContext {
       const structures = plugin.managers.structure.hierarchy.current.structures;
-      return {
+      const base = {
         loaded: structures.length > 0,
         structures: structures
           .map((ref) => ref.cell.obj?.data)
           .filter((s): s is Structure => s !== undefined)
           .map((s) => ({ chains: chainsOf(s) })),
       };
+      if (!traj) return base;
+      const modelCell = plugin.state.data.cells.get(traj.modelRef);
+      const currentFrame =
+        (modelCell?.transform.params as { modelIndex?: number } | undefined)?.modelIndex ?? 0;
+      // isPlaying is read live from the animation manager (not a local mirror), so it
+      // correctly reads false once a non-looping ('once') playback finishes on its own.
+      return {
+        ...base,
+        trajectory: { frameCount: traj.frameCount, currentFrame, isPlaying: plugin.managers.animation.isAnimating },
+      };
+    },
+
+    async loadTrajectory(resolved: ResolvedTrajectory): Promise<void> {
+      // Stop any running animation, then snapshot the current scene BEFORE clearing so a
+      // failed load (e.g. a topology/coordinate atom-count mismatch) can restore it rather
+      // than leaving the viewer blank. The snapshot is only ever restored on the failure
+      // path, so a successful load carries no behavioural change.
+      await plugin.managers.animation.stop();
+      const priorScene = plugin.state.data.getSnapshot();
+      await plugin.clear();
+      traj = undefined;
+      let result;
+      try {
+        result = await loadMolstarTrajectory(plugin, {
+          model: toModelParam(resolved.topology),
+          coordinates: toCoordsParam(resolved.coordinates),
+          preset: 'default',
+        });
+      } catch (e) {
+        await plugin.state.data.setSnapshot(priorScene).run(); // restore the prior scene
+        const msg = e instanceof Error ? e.message : String(e);
+        // Mol* throws "Frame element count mismatch, got X but expected Y" when the
+        // topology and coordinate atom counts disagree (mol-model/.../model.js:35).
+        if (/element count mismatch/i.test(msg)) throw new ExecutorError('trajectory_mismatch', msg);
+        throw e; // executor maps unknown throws to internal_error
+      }
+      const modelRef = (result.preset as { model?: { ref: string } } | undefined)?.model?.ref;
+      if (!modelRef) {
+        await plugin.state.data.setSnapshot(priorScene).run();
+        throw new ExecutorError('internal_error', 'loadTrajectory: molstar returned no model ref (unexpected preset shape).');
+      }
+      const modelCell = plugin.state.data.cells.get(modelRef);
+      const trajRef = modelCell?.transform.parent;
+      const trajData = trajRef
+        ? (plugin.state.data.cells.get(trajRef)?.obj?.data as Trajectory | undefined)
+        : undefined;
+      traj = { modelRef, frameCount: trajData?.frameCount ?? 1 };
+    },
+
+    playTrajectory(options) {
+      if (!traj) return;
+      void plugin.managers.animation.play(AnimateModelIndex, {
+        mode:
+          options?.loop === false
+            ? { name: 'once', params: { direction: 'forward' } }
+            : { name: 'loop', params: { direction: 'forward' } },
+        duration: { name: 'computed', params: { targetFps: options?.fps ?? 30 } },
+      });
+    },
+
+    stopTrajectory() {
+      if (!traj) return;
+      void plugin.managers.animation.stop();
+    },
+
+    setFrame(index) {
+      if (!traj) return;
+      const t = traj;
+      // Clamp defensively — the executor already range-checks, but the port is callable directly.
+      const modelIndex = Math.max(0, Math.min(index, t.frameCount - 1));
+      // Stop playback first: a running AnimateModelIndex recomputes the frame from elapsed
+      // time on its next tick and would immediately clobber this manual seek.
+      void (async () => {
+        await plugin.managers.animation.stop();
+        await plugin.build().to(t.modelRef).update(ModelFromTrajectory, (old) => ({ ...old, modelIndex })).commit();
+      })();
     },
   };
 }

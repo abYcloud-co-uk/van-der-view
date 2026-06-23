@@ -3,16 +3,21 @@ import type { Structure } from 'molstar/lib/mol-model/structure';
 import type { Command, CommandResult, Selection } from './types';
 import { err, ok } from './types';
 import { isPlainObject } from './util';
-import type { ExecutorContext, FocusOptions } from './context';
+import type { ExecutorContext, FocusOptions, PlayTrajectoryOptions } from './context';
 import { ExecutorError } from './errors';
 import type { ErrorCode } from './errors';
 import { defaultResolveStructure } from './resolve-structure';
 import type { LoadInput, ResolveStructure } from './resolve-structure';
+import { defaultResolveCoordinates } from './resolve-coordinates';
+import type { ResolveCoordinates } from './resolve-coordinates';
+import type { CoordinatesInput } from './types';
 import { resolveSelection } from './selection';
 
 export interface ExecutorOptions {
   /** Host hook to fetch auth-protected / internal structures. Defaults to RCSB/url/inline. */
   resolveStructure?: ResolveStructure;
+  /** Host hook to fetch a binary coordinate stream. Defaults to URL passthrough. */
+  resolveCoordinates?: ResolveCoordinates;
 }
 
 /** err() with the code constrained to the shared ErrorCode union (catches typos / divergence). */
@@ -40,6 +45,7 @@ function lociFor(ctx: ExecutorContext, selection: Selection): StructureElement.L
 
 export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = {}) {
   const resolveStructure = options.resolveStructure ?? defaultResolveStructure;
+  const resolveCoordinates = options.resolveCoordinates ?? defaultResolveCoordinates;
 
   async function dispatch(command: Command): Promise<CommandResult> {
     try {
@@ -50,6 +56,69 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
             throw new ExecutorError('internal_error', 'resolveStructure returned neither a url nor inline data.');
           }
           await ctx.loadStructure(resolved);
+          return ok();
+        }
+        case 'load-trajectory': {
+          const input = asObject(command.input);
+          if (!isPlainObject(input.topology)) {
+            throw new ExecutorError('invalid_input', 'load-trajectory requires a "topology" object.');
+          }
+          if (!isPlainObject(input.coordinates)) {
+            throw new ExecutorError('invalid_input', 'load-trajectory requires a "coordinates" object.');
+          }
+          const topology = await resolveStructure(input.topology as unknown as LoadInput);
+          if (topology.url === undefined && topology.data === undefined) {
+            throw new ExecutorError('internal_error', 'resolveStructure returned neither a url nor inline data.');
+          }
+          const coordinates = await resolveCoordinates(input.coordinates as unknown as CoordinatesInput);
+          if (coordinates.url === undefined && coordinates.data === undefined) {
+            throw new ExecutorError('internal_error', 'resolveCoordinates returned neither a url nor bytes.');
+          }
+          await ctx.loadTrajectory({ topology, coordinates });
+          return ok();
+        }
+        case 'play-trajectory': {
+          const input = asObject(command.input);
+          const traj = ctx.getSceneContext().trajectory;
+          if (traj === undefined) {
+            throw new ExecutorError('no_trajectory', 'no trajectory is loaded.');
+          }
+          // Mol*'s AnimateModelIndex can't animate a single frame (canApply requires
+          // frameCount > 1) — without this guard play would return ok with no motion.
+          if (traj.frameCount <= 1) {
+            throw new ExecutorError('invalid_input', `trajectory has ${traj.frameCount} frame(s); nothing to animate.`);
+          }
+          const playOptions: PlayTrajectoryOptions = {};
+          if (input.fps !== undefined) {
+            // fps:0 makes Mol* compute an infinite duration → playback freezes silently;
+            // reject non-positive / non-finite values instead of forwarding them.
+            if (typeof input.fps !== 'number' || !Number.isFinite(input.fps) || input.fps <= 0) {
+              throw new ExecutorError('invalid_input', 'play-trajectory "fps" must be a finite number greater than 0.');
+            }
+            playOptions.fps = input.fps;
+          }
+          if (typeof input.loop === 'boolean') playOptions.loop = input.loop;
+          ctx.playTrajectory(Object.keys(playOptions).length > 0 ? playOptions : undefined);
+          return ok();
+        }
+        case 'stop-trajectory': {
+          if (ctx.getSceneContext().trajectory === undefined) {
+            throw new ExecutorError('no_trajectory', 'no trajectory is loaded.');
+          }
+          ctx.stopTrajectory();
+          return ok();
+        }
+        case 'set-frame': {
+          const input = asObject(command.input);
+          const traj = ctx.getSceneContext().trajectory;
+          if (traj === undefined) {
+            throw new ExecutorError('no_trajectory', 'no trajectory is loaded.');
+          }
+          const index = input.index;
+          if (typeof index !== 'number' || !Number.isInteger(index) || index < 0 || index >= traj.frameCount) {
+            throw new ExecutorError('invalid_input', `set-frame "index" must be an integer in [0, ${traj.frameCount}).`);
+          }
+          ctx.setFrame(index);
           return ok();
         }
         case 'highlight': {
