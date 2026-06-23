@@ -3,9 +3,9 @@ title: Mol* MD Trajectories (topology + coordinates, playback)
 slug: molstar-trajectories
 type: how-to
 status: stable
-sources: [raw/0010-molstar-trajectory-loading-2026-06-22.md, "https://molstar.org/docs/plugin/file-formats/"]
-updated: 2026-06-22
-links: [molstar-api, command-schema, molstar-webxr, project-overview]
+sources: [raw/0010-molstar-trajectory-loading-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md, "https://molstar.org/docs/plugin/file-formats/"]
+updated: 2026-06-23
+links: [molstar-api, command-schema, agent-command-flow, molstar-webxr, project-overview]
 ---
 
 # Mol* MD Trajectories (topology + coordinates, playback)
@@ -101,13 +101,20 @@ For `MD_Data`, use the protein-only `*_nowat.pdb` + `*_nowat.xtc` (same OpenMM a
 
 ## Relevance to van-der-view
 
-- v1 `load-structure` loads **single static structures** only (`parseTrajectory` +
-  `applyPreset`); it **cannot** load topology+coordinates and there is **no trajectory
-  playback command** ([[command-schema]]).
-- Supporting MD movies (the `MD_Data` use case) is a **future command cluster**: a load path
-  wrapping `loadTrajectory(plugin, {model, coordinates, preset:'default'})` + a play/seek
-  command over `AnimateModelIndex` / `modelIndex`. Flagged here, not yet designed.
-- In VR, in-headset trajectory *animation* is the open question ([[molstar-webxr]]).
+- ✅ **Realized** in the **trajectory + playback cluster** (PR #17, merged 2026-06-23; src:
+  raw/0012). Four commands wrap this API: `load-trajectory { topology, coordinates }` (topology
+  reuses the `load-structure` source shape; coordinates url-only) +
+  `play-trajectory`/`stop-trajectory`/`set-frame` over `AnimateModelIndex` /
+  `ModelFromTrajectory.modelIndex`. See [[command-schema]] and [[agent-command-flow]].
+- The cluster adds the molstar-free `resolveCoordinates` host hook (symmetric with
+  `resolveStructure`), four `ExecutorContext` port members + a `SceneContext.trajectory`
+  read-model, and the `no_trajectory`/`trajectory_mismatch` error codes. Lifecycle detail (src:
+  raw/0012): `isPlaying` is read live from `plugin.managers.animation.isAnimating`; `setFrame`
+  and loads stop the animation first; a failed load snapshots+restores the prior scene.
+- v1 `load-structure` remains single-static-structure only (`parseTrajectory` + `applyPreset`);
+  `load-trajectory` is the topology+coordinates path.
+- In VR, in-headset trajectory *animation* is still the open question ([[molstar-webxr]]) — the
+  cluster cut in-XR playback.
 
 ## See also
 - [[molstar-api]] — single-structure loading, selection, camera (the static path)
@@ -117,9 +124,10 @@ For `MD_Data`, use the protein-only `*_nowat.pdb` + `*_nowat.xtc` (same OpenMM a
 
 ## Open questions
 - **In-headset trajectory playback** — does `AnimateModelIndex` animate inside an immersive XR
-  session? Unverified ([[molstar-webxr]]); test empirically.
-- **Headless coordinate parse in Node** — the XTC parser is in `mol-io` (pure), but binding +
-  stepping go through plugin state/animation; a pure-Node coordinate→loci spike (like the
-  static one in [[molstar-api]]) is not yet done.
-- **Trajectory command design** — load envelope (model+coordinates+preset), play/pause/seek,
-  and how a `Selection` scopes across frames — all open for the future cluster.
+  session? Unverified ([[molstar-webxr]]); test empirically. (In-XR playback was cut from the cluster.)
+- ✅ **Headless coordinate parse in Node** — resolved enough for testing (src: raw/0012): the
+  cluster's pure-Node spike builds an in-memory `Coordinates` and asserts
+  `Model.trajectoryFromModelAndCoordinates` gives `frameCount === N` and throws on a mismatch (no
+  binary XTC fixture). Real XTC *file* parsing in Node was sidestepped, not proven.
+- ✅ **Trajectory command design** — designed & shipped (PR #17): the load envelope, play/stop/seek,
+  and the scope cut (no per-frame `Selection` scoping, no multi-trajectory) are in [[command-schema]].

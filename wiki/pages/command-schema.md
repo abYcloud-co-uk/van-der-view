@@ -3,8 +3,8 @@ title: Agent Command Schema (van-der-view contract)
 slug: command-schema
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md]
-updated: 2026-06-22
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md]
+updated: 2026-06-23
 links: [agent-command-flow, molviewspec, molstar-api, molstar-webxr, project-overview, molstar-trajectories]
 ---
 
@@ -55,6 +55,8 @@ malformed, incl. an unknown preset name), `no_structure`, `empty_selection` (sel
 matched no atoms), `unknown_command`, `internal_error`. ⚠️ `unsupported_selection` is now
 **reserved but never thrown** — Plan 3a implemented all 7 presets, so there is no
 "valid-but-unimplemented preset" path; the code is kept for API compatibility (src: raw/0009).
+The **trajectory cluster** (PR #17) added `no_trajectory` (play/stop/seek with none loaded) and
+`trajectory_mismatch` (topology/coordinate atom-count disagreement) (src: raw/0012).
 
 ## v1 command catalog (locked)
 
@@ -65,6 +67,10 @@ matched no atoms), `unknown_command`, `internal_error`. ⚠️ `unsupported_sele
 | `focus` | **v1** | `{ selection: Selection, durationMs?, zoomOut?:number }` | `managers.camera.focusLoci(loci, { durationMs, extraRadius })` |
 | `get-scene-context` | **v1** | `{}` | **read tool** → `getSceneContext()` (the "up" channel) |
 | `reset-camera` | **v1** | `{}` | `managers.camera.reset()` |
+| `load-trajectory` | **traj** | `{ topology:<load-structure source>, coordinates:{ source:'url', url, format } }` | `loadTrajectory(plugin,{model,coordinates,preset:'default'})` — topology→`resolveStructure`, coords→`resolveCoordinates` ([[molstar-trajectories]]) |
+| `play-trajectory` | **traj** | `{ fps?:number(>0), loop?:boolean }` | `animation.play(AnimateModelIndex,…)` |
+| `stop-trajectory` | **traj** | `{}` | `animation.stop()` |
+| `set-frame` | **traj** | `{ index:int [0,frameCount) }` | update `ModelFromTrajectory.modelIndex` |
 | `color` | v1.1 | `{ selection, color }` | `component.updateRepresentationsTheme` |
 | `set-representation` | v1.1 | `{ selection, type }` | `representation.addRepresentation` |
 | `load-scene` | v1.1 | `{ mvsj }` | `loadMVS(plugin, data)` ([[molviewspec]]) |
@@ -116,6 +122,18 @@ type ResolveStructure = (input: LoadInput) => Promise<{ data?:string; url?:strin
   `MolViewConfig.resolveStructure` to fetch auth-protected sources (e.g. a Bearer-token
   presigned S3 URL) and return the text. `resolveStructure` is **v1** (src: raw/0005).
 
+### Trajectory coordinates — the `resolveCoordinates` hook
+
+The **trajectory cluster** (PR #17) added a second host hook, symmetric with `resolveStructure`:
+`load-trajectory`'s **topology** reuses `resolveStructure`, while its binary **coordinate stream**
+routes through `resolveCoordinates` (src: raw/0012, [[molstar-trajectories]]):
+```ts
+type CoordinatesInput = { source:'url'; url?:string; format:'xtc'|'trr'|'dcd'|'nctraj' };
+type ResolveCoordinates = (i: CoordinatesInput) => Promise<{ url?:string; data?:Uint8Array; format; isBinary:true }>;
+```
+Agent-facing coordinates are **url-only** (binary can't be text-inlined); raw bytes enter only via
+a host override. Threaded through `MolViewConfig.resolveCoordinates`.
+
 ## Hard constraints baked into the schema
 
 1. **`toggle-xr` cannot self-trigger entry** (v1.1). WebXR `request()` needs a user
@@ -131,15 +149,15 @@ type ResolveStructure = (input: LoadInput) => Promise<{ data?:string; url?:strin
 ## See also
 - [[agent-command-flow]] — the end-to-end tool-calling loop and adapter/executor seam
 - [[molviewspec]] · [[molstar-api]] · [[molstar-webxr]] — the three mapped layers
-- [[molstar-trajectories]] — the MD-trajectory loading/playback gap a future command cluster would fill
+- [[molstar-trajectories]] — MD-trajectory loading/playback, realized by the trajectory cluster (PR #17)
 - [[project-overview]] — the constraints this schema satisfies
 
 ## Open questions
 - Envelope: batch commands (array) and transactions? Streaming ack protocol?
-- **Trajectories are out of v1.** `load-structure` loads a single static structure; loading a
-  topology + a separate coordinate stream (PDB+XTC and other MD trajectories) and **frame
-  playback** would be a future command cluster wrapping Mol\*'s `loadTrajectory` +
-  `AnimateModelIndex` (src: raw/0010, [[molstar-trajectories]]).
+- ✅ **Trajectories shipped (PR #17).** The `load-trajectory`/`play-trajectory`/`stop-trajectory`/
+  `set-frame` cluster loads a topology + a separate coordinate stream (PDB+XTC etc.) and drives
+  frame playback over `loadTrajectory` + `AnimateModelIndex` (src: raw/0012, [[molstar-trajectories]]).
+  Cut: in-XR playback, per-frame `Selection` scoping, multi-trajectory, gro/xyz topology.
 - ✅ **Error code taxonomy** — the v1 `error.code` set is defined and enforced by the
   executor (src: raw/0008, listed above); Plan 3a left it intact and reduced
   `unsupported_selection` to a reserved-unused code (raw/0009). Remaining: whether to open

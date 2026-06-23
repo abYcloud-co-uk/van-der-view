@@ -3,9 +3,9 @@ title: Agent Command Flow (adapter + executor)
 slug: agent-command-flow
 type: how-to
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md]
-updated: 2026-06-22
-links: [command-schema, molstar-api, headless-react, project-overview]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md]
+updated: 2026-06-23
+links: [command-schema, molstar-api, headless-react, project-overview, molstar-trajectories]
 ---
 
 # Agent Command Flow (adapter + executor)
@@ -80,9 +80,12 @@ interface ExecutorContext {          // implemented by the real Mol* adapter (Pl
   loadStructure(resolved): Promise<void>;
   highlight(loci): void;  clearHighlight(): void;
   focus(loci, options?): void;  resetCamera(): void;
-  getSceneContext(): SceneContext;
+  getSceneContext(): SceneContext;   // SceneContext.trajectory carries frameCount/currentFrame/isPlaying
+  // trajectory cluster (PR #17):
+  loadTrajectory(resolved): Promise<void>;
+  playTrajectory(options?): void;  stopTrajectory(): void;  setFrame(index): void;
 }
-const { dispatch } = createExecutor(ctx, { resolveStructure });   // resolveStructure is host-overridable
+const { dispatch } = createExecutor(ctx, { resolveStructure, resolveCoordinates });   // both host-overridable
 ```
 
 - `resolveSelection(input.selection, structure)` turns our `Selection` ([[command-schema]])
@@ -90,8 +93,8 @@ const { dispatch } = createExecutor(ctx, { resolveStructure });   // resolveStru
 - `load-structure` runs `resolveStructure(input)` → `ctx.loadStructure(resolved)`.
 - The executor **validates the LLM's JSON at this boundary** and returns structured
   `CommandResult` errors — `invalid_input`, `invalid_selection`, `unsupported_selection`,
-  `no_structure`, `empty_selection`, `unknown_command`, `internal_error` — fed back as a
-  failed `tool_result` so the agent self-corrects.
+  `no_structure`, `empty_selection`, `no_trajectory`, `trajectory_mismatch`, `unknown_command`,
+  `internal_error` — fed back as a failed `tool_result` so the agent self-corrects.
 - Depending on a **port** (not managers) makes the whole executor **Node-testable**
   against a fake port + real fixture `Structure`s — see [[testing-strategy]].
 
@@ -101,7 +104,10 @@ The concrete Mol\* calls the **adapter** wires behind the port — implemented i
 `managers.camera.focusLoci(loci, { durationMs, extraRadius })`, `load-structure` →
 `plugin.clear()` + `builders.data.*` + `parseTrajectory` + preset, `reset-camera` →
 `managers.camera.reset()`, `getSceneContext` from the hierarchy (chains memoized per
-`Structure`) (src: raw/0009).
+`Structure`) (src: raw/0009). The **trajectory cluster** (PR #17) adds
+`loadTrajectory`/`playTrajectory`/`stopTrajectory`/`setFrame` wrapping `loadTrajectory` +
+`AnimateModelIndex` + `ModelFromTrajectory`, with `isPlaying` read live from the animation
+manager and a failed load restoring the prior scene (src: raw/0012, [[molstar-trajectories]]).
 
 ## The integration seam (verified Anthropic shapes)
 
