@@ -3,9 +3,9 @@ title: Agent Command Schema (van-der-view contract)
 slug: command-schema
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md, raw/0014-representation-cluster-merged-2026-06-23.md]
 updated: 2026-06-23
-links: [agent-command-flow, molviewspec, molstar-api, molstar-webxr, project-overview, molstar-trajectories]
+links: [agent-command-flow, molviewspec, molstar-api, molstar-webxr, project-overview, molstar-trajectories, molstar-appearance]
 ---
 
 # Agent Command Schema (van-der-view contract)
@@ -71,18 +71,24 @@ The **trajectory cluster** (PR #17) added `no_trajectory` (play/stop/seek with n
 | `play-trajectory` | **traj** | `{ fps?:number(>0), loop?:boolean }` | `animation.play(AnimateModelIndex,…)` |
 | `stop-trajectory` | **traj** | `{}` | `animation.stop()` |
 | `set-frame` | **traj** | `{ index:int [0,frameCount) }` | update `ModelFromTrajectory.modelIndex` |
-| `color` | v1.1 | `{ selection, color }` | `component.updateRepresentationsTheme` |
-| `set-representation` | v1.1 | `{ selection, type }` | `representation.addRepresentation` |
-| `load-scene` | v1.1 | `{ mvsj }` | `loadMVS(plugin, data)` ([[molviewspec]]) |
-| `toggle-xr` | v1.1 | `{ on?: boolean }` | `canvas3d.xr.request()/end()` — gesture affordance ([[molstar-webxr]]) |
+| `set-representation` | **v1.1a** ✅ | `{ selection, type }` | per-selection component + `addRepresentation(type)` + hide preset coverage ([[molstar-appearance]]) |
+| `set-color` | **v1.1a** ✅ | `{ selection, scheme? \| color? }` (exactly one) | color on the component's representation — hex→`uniform`, scheme→theme, **per-selection** ([[molstar-appearance]]) |
+| `toggle-visibility` | **v1.1a** ✅ | `{ selection, visible:bool }` | toggle the component / per-loci transparency ([[molstar-appearance]]) |
+| `measure-distance` | **v1.1a** ✅ | `{ from:Selection, to:Selection }` | centroid–centroid Å — **pure-Node** (`measure.ts`), no port member |
+| `add-label` | **v1.1a** ✅ | `{ selection, text }` | `measurement.addLabel({visualParams:{customText}})`, replace-in-place ([[molstar-appearance]]) |
+| `load-scene` | v1.1b | `{ mvsj }` | `loadMVS(plugin, data)` ([[molviewspec]]) |
+| `toggle-xr` | v1.1b | `{ on?: boolean }` | `canvas3d.xr.request()/end()` — gesture affordance ([[molstar-webxr]]) |
+| `highlight.style` | v1.1b | `{ selection, style }` | styled highlight (deferred from v1) |
 
 `get-scene-context` is **in v1** and is a real read tool the agent can call, not
 just system-prompt metadata — so it doesn't guess selectors (src: raw/0003).
 
 **Plan-3a schema deltas (implemented, src: raw/0009):**
-- **`highlight.style` was dropped from v1** and moved to the **v1.1 representation
-  cluster** (alongside `color`/`set-representation`) — the 3a cut line. `highlight` is
-  just `{ selection }` in v1.
+- **`highlight.style` was dropped from v1.** `highlight` is just `{ selection }` in v1.
+  The **v1.1a representation cluster** then shipped the 5 restyle/measure commands above
+  (PR #21, src: raw/0014, [[molstar-appearance]]) — note `color` landed as **`set-color`**
+  (scheme *or* hex), and the per-selection appearance model (color on the owned component, not a
+  structure-wide retheme). `highlight.style` itself moved on to **v1.1b**.
 - **`focus.zoomOut` is a NUMERIC factor** (not a boolean): `1` fits the selection, `2`
   frames ≈ twice as wide for context. The adapter realizes it as
   `extraRadius = (zoomOut − 1) × structure.boundary.sphere.radius` so the pull-back scales
@@ -150,10 +156,16 @@ a host override. Threaded through `MolViewConfig.resolveCoordinates`.
 - [[agent-command-flow]] — the end-to-end tool-calling loop and adapter/executor seam
 - [[molviewspec]] · [[molstar-api]] · [[molstar-webxr]] — the three mapped layers
 - [[molstar-trajectories]] — MD-trajectory loading/playback, realized by the trajectory cluster (PR #17)
+- [[molstar-appearance]] — the per-selection representation/color/visibility model (v1.1a cluster, PR #21)
 - [[project-overview]] — the constraints this schema satisfies
 
 ## Open questions
 - Envelope: batch commands (array) and transactions? Streaming ack protocol?
+- ✅ **Representation cluster shipped (PR #21).** `set-representation`/`set-color`/`toggle-visibility`/
+  `measure-distance`/`add-label` landed with a per-selection-component appearance model (color on the
+  owned component → persists + per-selection schemes; preset hidden under per-loci transparency)
+  (src: raw/0014, [[molstar-appearance]]). Cut to **v1.1b**: `load-scene`, `toggle-xr`,
+  `highlight.style`, and multi-representation components for mixed polymer+ligand selections.
 - ✅ **Trajectories shipped (PR #17).** The `load-trajectory`/`play-trajectory`/`stop-trajectory`/
   `set-frame` cluster loads a topology + a separate coordinate stream (PDB+XTC etc.) and drives
   frame playback over `loadTrajectory` + `AnimateModelIndex` (src: raw/0012, [[molstar-trajectories]]).

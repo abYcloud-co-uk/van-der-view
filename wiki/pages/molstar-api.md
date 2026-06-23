@@ -5,7 +5,7 @@ type: entity
 status: stable
 sources: [raw/0001-molstar-research.md, raw/0007-node-structure-spike-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, "https://molstar.org/docs/plugin/instance/"]
 updated: 2026-06-22
-links: [molviewspec, molstar-webxr, command-schema, agent-command-flow, headless-react, glossary, molstar-trajectories]
+links: [molviewspec, molstar-webxr, command-schema, agent-command-flow, headless-react, glossary, molstar-trajectories, molstar-appearance]
 ---
 
 # Mol* Programmatic API (headless)
@@ -195,6 +195,7 @@ const id = Unit.isAtomic(unit)
 - [[agent-command-flow]] — the executor that invokes these calls
 - [[headless-react]] — mounting this in React without SSR breakage
 - [[molstar-trajectories]] — loading topology + coordinate streams (MD trajectories) + playback
+- [[molstar-appearance]] — per-selection representation/color/visibility (components, transparency, color themes)
 
 ## Open questions
 - Pin which Mol* `5.x` we target; verify signatures against `node_modules/molstar/lib/*.d.ts`.
@@ -202,6 +203,9 @@ const id = Unit.isAtomic(unit)
   `lociHighlights.highlightOnly({loci})`, `camera.focusLoci(loci, {durationMs, extraRadius})`,
   `loci.structure.boundary.sphere.radius`, `Unit.isAtomic`, and the
   `StructureSelectionQueries.*` presets are confirmed there (src: raw/0009).
-- `Structure.toStructureElementLoci` and `colorParams:{value}` confirmed via docs, not line reads.
+- ✅ `colorParams:{value}` (uniform color) now **GPU-verified** via the representation cluster, along
+  with `tryCreateComponentFromExpression`, `setStructureTransparency`, and the color-theme names
+  (`b-factor`→`uncertainty`, `residue-index`≡`sequence-id`) — see [[molstar-appearance]] (src: raw/0014).
+  `Structure.toStructureElementLoci` still confirmed via docs only.
 - Real GPU-side rendering of these adapter calls is verified by hand in **Plan 3b** (the
   adapter/`createMolView` are typecheck-gated, not unit-tested — src: raw/0009).
