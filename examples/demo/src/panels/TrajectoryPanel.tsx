@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useMolView } from 'van-der-view/browser';
-import type { CommandResult } from 'van-der-view';
-import type { SceneContext } from 'van-der-view/browser';
+import { useMolView } from '@abycloud-co-uk/van-der-view/browser';
+import type { CommandResult } from '@abycloud-co-uk/van-der-view';
+import type { SceneContext } from '@abycloud-co-uk/van-der-view/browser';
 import { Panel, ResultView } from '../ui';
 
 /**

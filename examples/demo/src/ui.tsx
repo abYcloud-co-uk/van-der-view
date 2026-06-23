@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { CommandResult } from 'van-der-view';
+import type { CommandResult } from '@abycloud-co-uk/van-der-view';
 
 export function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (

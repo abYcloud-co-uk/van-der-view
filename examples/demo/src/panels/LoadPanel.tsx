@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useMolView } from 'van-der-view/browser';
-import type { CommandResult } from 'van-der-view';
+import { useMolView } from '@abycloud-co-uk/van-der-view/browser';
+import type { CommandResult } from '@abycloud-co-uk/van-der-view';
 import { Panel, ResultView } from '../ui';
 import { FIXTURE_1CRN, FIXTURE_1HSG_ID } from '../fixtures';
 
