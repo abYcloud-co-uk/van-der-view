@@ -8,7 +8,12 @@ import { ModelFromTrajectory } from 'molstar/lib/mol-plugin-state/transforms/mod
 import { AnimateModelIndex } from 'molstar/lib/mol-plugin-state/animation/built-in/model-index';
 import type { LoadTrajectoryParams } from 'molstar/lib/extensions/plugin/loaders';
 import type { ResolvedTrajectory } from '../resolve-coordinates';
+import { Color } from 'molstar/lib/mol-util/color';
+import { OrderedSet } from 'molstar/lib/mol-data/int';
+import { setSubtreeVisibility } from 'molstar/lib/mol-plugin/behavior/static/state';
 import { ExecutorError } from '../errors';
+import type { ColorScheme, RepresentationType } from '../types';
+import type { ColorSpec } from '../context';
 
 /** Per-Structure chain-id cache. A Structure is immutable, so its chain list never
  *  changes; the WeakMap auto-evicts when the Structure is GC'd. get-scene-context is
@@ -37,6 +42,26 @@ function chainsOf(structure: Structure): string[] {
   return chains;
 }
 
+/** Agent color-scheme names → Mol* color-theme registry names. The two flagged
+ *  with ⚠ are best-guess and must be confirmed in the demo (spike 2). */
+const SCHEME_TO_THEME: Record<ColorScheme, string> = {
+  element: 'element-symbol',
+  chain: 'chain-id',
+  'residue-index': 'sequence-id', // ⚠ confirm against the color-theme registry
+  'secondary-structure': 'secondary-structure',
+  'b-factor': 'uncertainty', // ⚠ Mol*'s B-factor theme is named 'uncertainty'
+  hydrophobicity: 'hydrophobicity',
+  'sequence-id': 'sequence-id',
+};
+
+/** A stable cache key for a loci (its units + element index sets). Two loci over
+ *  the same atoms produce the same key → the same per-selection component. */
+function lociKey(loci: StructureElement.Loci): string {
+  return loci.elements
+    .map((e) => `${e.unit.id}:${OrderedSet.toArray(e.indices).join(',')}`)
+    .join('|');
+}
+
 /**
  * The real ExecutorContext: drives a live Mol* plugin behind the Plan-2 port, so
  * the provider-agnostic executor never touches Mol* managers directly.
@@ -48,6 +73,62 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
   /** Tracks the one loaded trajectory: the ModelFromTrajectory node ref + frame count.
    *  Playback state is read live from the animation manager, not mirrored here. */
   let traj: { modelRef: string; frameCount: number } | undefined;
+
+  /** Per-selection visual components (replace-in-place model). Keyed by lociKey.
+   *  `repr` is the current representation selector; `reprType`/`color` are the
+   *  last-applied style, re-applied when the other changes. */
+  type CompEntry = {
+    component: Awaited<ReturnType<typeof plugin.builders.structure.tryCreateComponentFromExpression>>;
+    repr?: Awaited<ReturnType<typeof plugin.builders.structure.representation.addRepresentation>>;
+    reprType?: RepresentationType;
+    color?: ColorSpec;
+  };
+  const components = new Map<string, CompEntry>();
+
+  /** Get-or-create the per-selection component for a loci. */
+  async function componentFor(
+    loci: StructureElement.Loci,
+  ): Promise<NonNullable<CompEntry['component']> | undefined> {
+    const key = lociKey(loci);
+    const existing = components.get(key);
+    if (existing?.component) return existing.component;
+    const structureCell = plugin.managers.structure.hierarchy.current.structures[0]?.cell;
+    if (!structureCell) return undefined;
+    const bundle = StructureElement.Bundle.fromLoci(loci);
+    const expression = StructureElement.Bundle.toExpression(bundle);
+    const component = await plugin.builders.structure.tryCreateComponentFromExpression(
+      structureCell,
+      expression,
+      `vdv-${key}`,
+    );
+    if (!component) return undefined;
+    components.set(key, { ...(existing ?? {}), component });
+    return component;
+  }
+
+  /** (Re)build the single representation for a component with the given type + color. */
+  async function applyStyle(
+    key: string,
+    type: RepresentationType,
+    color: ColorSpec | undefined,
+  ): Promise<void> {
+    const entry = components.get(key);
+    if (!entry?.component) return;
+    if (entry.repr) await plugin.build().delete(entry.repr).commit();
+    const props: Record<string, unknown> = { type };
+    if (color) {
+      if ('hex' in color) {
+        props.color = 'uniform';
+        props.colorParams = { value: Color.fromHexStyle(color.hex) };
+      } else {
+        props.color = SCHEME_TO_THEME[color.scheme];
+      }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- addRepresentation's prop union is built-in-typed; we pass a validated subset
+    entry.repr = await plugin.builders.structure.representation.addRepresentation(entry.component, props as any);
+    entry.reprType = type;
+    entry.color = color;
+  }
 
   const toModelParam = (t: ResolvedStructure): LoadTrajectoryParams['model'] =>
     t.url !== undefined
@@ -72,6 +153,7 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
       // command reads structures[0], so a prior structure must be cleared first
       // (otherwise a second load would be appended and silently ignored).
       await plugin.clear();
+      components.clear();
       const data =
         resolved.url !== undefined
           ? await plugin.builders.data.download(
@@ -136,6 +218,7 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
       await plugin.managers.animation.stop();
       const priorScene = plugin.state.data.getSnapshot();
       await plugin.clear();
+      components.clear();
       traj = undefined;
       let result;
       try {
@@ -192,6 +275,39 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
         await plugin.managers.animation.stop();
         await plugin.build().to(t.modelRef).update(ModelFromTrajectory, (old) => ({ ...old, modelIndex })).commit();
       })();
+    },
+
+    setRepresentation(loci, type) {
+      void (async () => {
+        const component = await componentFor(loci);
+        if (!component) return;
+        const key = lociKey(loci);
+        await applyStyle(key, type, components.get(key)?.color);
+      })();
+    },
+
+    setColor(loci, color) {
+      void (async () => {
+        const component = await componentFor(loci);
+        if (!component) return;
+        const key = lociKey(loci);
+        // Default to ball-and-stick when coloring a selection that has no representation yet.
+        const type = components.get(key)?.reprType ?? 'ball-and-stick';
+        await applyStyle(key, type, color);
+      })();
+    },
+
+    setVisibility(loci, visible) {
+      void (async () => {
+        const component = await componentFor(loci);
+        if (!component) return;
+        setSubtreeVisibility(plugin.state.data, component.ref, !visible);
+      })();
+    },
+
+    addLabel(loci, text) {
+      // The measurement manager takes a loci directly — no per-selection component.
+      void plugin.managers.structure.measurement.addLabel(loci, { visualParams: { customText: text } });
     },
   };
 }
