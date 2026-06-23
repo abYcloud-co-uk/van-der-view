@@ -44,23 +44,27 @@ Needs a locally-served topology + coordinate file. The `MD_Data/` folder is giti
 npx serve MD_Data/5GGS      # prints an origin, e.g. http://localhost:3000
 ```
 
-1. **Load trajectory** — paste the `*_nowat.pdb` (topology) and `*_nowat.xtc` (coordinates)
-   URLs, format pdb/xtc → "Load trajectory". The complex renders. A topology/coordinate
-   atom-count mismatch surfaces a `trajectory_mismatch` error (no silent corruption).
-2. **Play / Stop** — "Play" animates the frames (loops); "Stop" halts. Tune fps feel.
-3. **Seek** — drag the frame slider; the structure jumps to that frame and the readout's
-   `currentFrame` follows.
-4. **Scene state** — the readout shows `frameCount / currentFrame / isPlaying`; it matches
-   what's on screen.
+1. **Load trajectory** — paste the `*_nowat.pdb` (topology) + `*_nowat.xtc` (coordinates)
+   URLs, formats pdb/xtc → "Load trajectory". The complex renders and the readout shows a
+   real `frameCount` (≈309 for the MD_Data systems).
+2. **Play / Stop** — "Play" animates the frames (loops by default); "Stop" halts.
+3. **Seek** — drag the frame slider; the structure jumps to that frame and `currentFrame`
+   follows. **Drag while playing →** playback **stops** and jumps to the dragged frame
+   (the seek halts the animation so it isn't immediately overwritten on the next tick).
+4. **`isPlaying` is live** — after "Stop" (or after a playback ends on its own), the readout's
+   `isPlaying` reads **`false`**. It's read from Mol\*'s animation manager, not a stale local flag.
+5. **A failed load keeps the prior scene** — load a normal structure first (e.g. "Load 1CRN"),
+   then in the Trajectory panel pair a topology with a coordinate file from a *different* system
+   (e.g. **5GGS `.pdb` + 1N8Z `.xtc`** — different atom counts) → a `trajectory_mismatch` error
+   appears **and the previously-loaded structure stays on screen** (the viewer is not blanked).
 
 > **MD_Data chain-id caveat (data, not library):** the `*_interactions.json` files label the
 > antigen chain `Z`, but the `*_nowat` viewer files label it `A`. Use the viewer files' ids
 > when selecting chains.
 
-> **`isPlaying` after natural end:** `isPlaying` is a local flag on the adapter; if a
-> non-looping playback finishes naturally (without a `stop-trajectory` call), `get-scene-context`
-> may still report `isPlaying: true`. This is a known v1 limitation — use `stop-trajectory`
-> explicitly or ignore the flag after playback ends.
+> **fps validation:** the panel's Play uses `fps: 15`. The library rejects `fps <= 0` / NaN with
+> an `invalid_input` result (a 0 fps would otherwise freeze playback), and rejects `play` on a
+> single-frame trajectory (`frameCount <= 1`, nothing to animate).
 
 ## WebXR
 
