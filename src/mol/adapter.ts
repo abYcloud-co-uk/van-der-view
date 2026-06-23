@@ -137,15 +137,16 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
   };
   const components = new Map<string, CompEntry>();
 
-  /** In-flight op per loci-key (findings 4/5): each mutator chains onto the prior op
-   *  for the same key so concurrent same-loci calls can't race (double-delete /
-   *  non-atomic create). The stored promise swallows rejection so a failed prior op
-   *  doesn't poison the chain; the awaiter still sees the real throw via `next`. */
-  const inflight = new Map<string, Promise<unknown>>();
-  function serialize<T>(key: string, work: () => Promise<T>): Promise<T> {
-    const prev = inflight.get(key) ?? Promise.resolve();
-    const next = prev.then(work);
-    inflight.set(key, next.catch(() => {}));
+  /** One serialized op chain for ALL appearance mutations. They share plugin state — the
+   *  single preset transparency cell and the component tree — so even calls on *different*
+   *  selections must not interleave their read-modify-write commits (a per-loci-key lock
+   *  wouldn't stop a chain-A vs chain-B race on the shared transparency cell). These ops are
+   *  infrequent GPU writes, so a global chain costs nothing real. The stored promise swallows
+   *  rejection so a failed op doesn't poison the chain; the awaiter still sees the real throw. */
+  let opChain: Promise<unknown> = Promise.resolve();
+  function serialize<T>(work: () => Promise<T>): Promise<T> {
+    const next = opChain.then(work);
+    opChain = next.catch(() => {});
     return next;
   }
 
@@ -155,10 +156,14 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
   const presetComponents = () =>
     plugin.managers.structure.hierarchy.current.structures[0]?.components ?? [];
 
-  /** Transform refs of every vdv component we own — excluded from preset-hiding so
+  /** Preset components MINUS every vdv component we own — the target for preset-hiding, so
    *  transparency never targets (and hides) a representation we just drew. */
-  const currentVdvRefs = (): Set<string> =>
-    new Set([...components.values()].map((e) => e.component?.ref).filter((r): r is string => !!r));
+  const presetOnlyComponents = () => {
+    const vdvRefs = new Set(
+      [...components.values()].map((e) => e.component?.ref).filter((r): r is string => !!r),
+    );
+    return presetComponents().filter((c) => !vdvRefs.has(c.cell.transform.ref));
+  };
 
   /** Hide the preset's draw of a styled selection so the owned vdv component is the only
    *  thing rendered for those atoms. A cartoon draws only polymer, so for cartoon we hide
@@ -170,19 +175,21 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
     loci: StructureElement.Loci,
     type: RepresentationType,
   ): Promise<void> {
-    const vdvRefs = currentVdvRefs();
-    const presetOnly = presetComponents().filter((c) => !vdvRefs.has(c.cell.transform.ref));
+    const presetOnly = presetOnlyComponents();
     if (presetOnly.length === 0) return;
     const toHide = type === 'cartoon' ? polymerSubsetLoci(loci) : loci;
+    // Two passes BY DESIGN (not a redundant restore): restore the whole selection, THEN hide
+    // only what this rep draws. Switching rep types (e.g. spacefill→cartoon) must drop the
+    // prior, wider hide so its atoms don't stay invisible. Cost is one extra transparency layer.
     await setStructureTransparency(plugin, presetOnly, 0, async () => loci);
     await setStructureTransparency(plugin, presetOnly, 1, async () => toHide);
   }
 
-  /** Get-or-create the per-selection component for a loci. */
+  /** Get-or-create the per-selection component for a loci (key precomputed by the caller). */
   async function componentFor(
     loci: StructureElement.Loci,
+    key: string,
   ): Promise<NonNullable<CompEntry['component']> | undefined> {
-    const key = lociKey(loci);
     const existing = components.get(key);
     if (existing?.component) return existing.component;
     const structureCell = plugin.managers.structure.hierarchy.current.structures[0]?.cell;
@@ -376,12 +383,12 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
     },
 
     setRepresentation(loci, type) {
-      const key = lociKey(loci);
-      return serialize(key, async () => {
+      return serialize(async () => {
         // Own a vdv component for this selection, (re)draw it with the new type while keeping
         // any color the selection already carries, then hide the preset's draw of those atoms
         // so only our style shows. Color persists because it lives on the entry, not the preset.
-        const component = await componentFor(loci);
+        const key = lociKey(loci);
+        const component = await componentFor(loci, key);
         if (!component) return;
         await applyStyle(key, type, components.get(key)?.color);
         await hidePresetCoverage(loci, type);
@@ -389,14 +396,14 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
     },
 
     setColor(loci, color) {
-      const key = lociKey(loci);
-      return serialize(key, async () => {
+      return serialize(async () => {
         // Color lives ON the per-selection vdv component (hex → uniform colorParams, scheme →
         // a color theme scoped to the component's atoms) — NOT as overpaint/retheme of the
         // preset. So it persists across set-representation, schemes apply per-selection rather
         // than structure-wide, and coloring one selection never disturbs another. With no prior
         // representation, default to a natural style for the selection's contents.
-        const component = await componentFor(loci);
+        const key = lociKey(loci);
+        const component = await componentFor(loci, key);
         if (!component) return;
         const type = components.get(key)?.reprType ?? defaultReprFor(loci);
         await applyStyle(key, type, color);
@@ -405,9 +412,8 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
     },
 
     setVisibility(loci, visible) {
-      const key = lociKey(loci);
-      return serialize(key, async () => {
-        const component = components.get(key)?.component;
+      return serialize(async () => {
+        const component = components.get(lociKey(loci))?.component;
         if (component) {
           // Owned selection: the preset's coverage is already hidden and the vdv component
           // draws it, so just toggle that component (setSubtreeVisibility: true = hidden).
@@ -417,18 +423,16 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
           // transparency (1 = hidden, 0 = restored). A later 0-layer shadows the prior 1-layer
           // for the same atoms (Transparency.merge), so restore is scoped — other selections
           // (and other hidden selections) are untouched, no clear-all.
-          const vdvRefs = currentVdvRefs();
-          const presetOnly = presetComponents().filter((c) => !vdvRefs.has(c.cell.transform.ref));
-          await setStructureTransparency(plugin, presetOnly, visible ? 0 : 1, async () => loci);
+          await setStructureTransparency(plugin, presetOnlyComponents(), visible ? 0 : 1, async () => loci);
         }
       });
     },
 
     addLabel(loci, text) {
-      const key = lociKey(loci);
-      return serialize(key, async () => {
+      return serialize(async () => {
         // Replace-in-place: delete the prior label for this loci before adding the new one
         // (finding 8 — otherwise duplicate labels stack).
+        const key = lociKey(loci);
         const entry = components.get(key);
         if (entry?.label) await plugin.build().delete(entry.label).commit();
         const result = await plugin.managers.structure.measurement.addLabel(loci, {

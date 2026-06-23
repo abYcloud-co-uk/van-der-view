@@ -448,6 +448,26 @@ describe('createExecutor — representation cluster (v1.1a)', () => {
     expect(errorOf(res).code).toBe('invalid_input');
   });
 
+  it('set-color treats an explicit null as absent (LLM fills every schema property)', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'set-color',
+      input: { selection: { chain: 'A' }, scheme: null, color: '#ff0000' },
+    });
+    expect(res.ok).toBe(true);
+    expect((ctx.setColor as ReturnType<typeof vi.fn>).mock.calls[0][1]).toEqual({ hex: '#ff0000' });
+  });
+
+  it('set-color treats a null color as absent and forwards the scheme', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({
+      name: 'set-color',
+      input: { selection: { chain: 'A' }, scheme: 'chain', color: null },
+    });
+    expect(res.ok).toBe(true);
+    expect((ctx.setColor as ReturnType<typeof vi.fn>).mock.calls[0][1]).toEqual({ scheme: 'chain' });
+  });
+
   it('set-color rejects a non-hex color', async () => {
     const ctx = fakeContext();
     const res = await createExecutor(ctx).dispatch({

@@ -97,10 +97,12 @@ function requireEnum<T extends string>(
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
-/** Validate set-color's input down to exactly one of `scheme` or a hex `color`. */
+/** Validate set-color's input down to exactly one of `scheme` or a hex `color`. An LLM that
+ *  fills every schema property emits the unused one as JSON `null`, so treat null as absent
+ *  (`!= null`) — otherwise {scheme: null, color: "#ff0000"} would fail the exactly-one guard. */
 function requireColorSpec(input: Record<string, unknown>): ColorSpec {
-  const hasScheme = input.scheme !== undefined;
-  const hasColor = input.color !== undefined;
+  const hasScheme = input.scheme != null;
+  const hasColor = input.color != null;
   if (hasScheme === hasColor) {
     throw new ExecutorError('invalid_input', 'set-color requires exactly one of "scheme" or "color".');
   }
