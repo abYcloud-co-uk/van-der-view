@@ -457,6 +457,15 @@ describe('createExecutor — representation cluster (v1.1a)', () => {
     expect(errorOf(res).code).toBe('invalid_input');
   });
 
+  it('set-color rejects a non-hex color before the structure lookup', async () => {
+    const ctx = fakeContext({ getStructure: () => undefined });
+    const res = await createExecutor(ctx).dispatch({
+      name: 'set-color',
+      input: { selection: { chain: 'A' }, color: 'red' },
+    });
+    expect(errorOf(res).code).toBe('invalid_input'); // not 'no_structure'
+  });
+
   it('toggle-visibility forwards the boolean', async () => {
     const ctx = fakeContext();
     await createExecutor(ctx).dispatch({
@@ -483,6 +492,10 @@ describe('createExecutor — representation cluster (v1.1a)', () => {
     });
     expect(res.ok).toBe(true);
     if (res.ok) expect((res.data as { distanceAngstrom: number }).distanceAngstrom).toBeCloseTo(4.5, 6);
+    expect(ctx.setRepresentation).not.toHaveBeenCalled();
+    expect(ctx.setColor).not.toHaveBeenCalled();
+    expect(ctx.setVisibility).not.toHaveBeenCalled();
+    expect(ctx.addLabel).not.toHaveBeenCalled();
   });
 
   it('measure-distance returns empty_selection when an end matches nothing', async () => {
