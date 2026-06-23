@@ -9,7 +9,7 @@ import { AnimateModelIndex } from 'molstar/lib/mol-plugin-state/animation/built-
 import type { LoadTrajectoryParams } from 'molstar/lib/extensions/plugin/loaders';
 import type { ResolvedTrajectory } from '../resolve-coordinates';
 import { Color } from 'molstar/lib/mol-util/color';
-import { OrderedSet } from 'molstar/lib/mol-data/int';
+import { OrderedSet, SortedArray } from 'molstar/lib/mol-data/int';
 import { setSubtreeVisibility } from 'molstar/lib/mol-plugin/behavior/static/state';
 import { setStructureTransparency } from 'molstar/lib/mol-plugin-state/helpers/structure-transparency';
 import type { StateObjectSelector } from 'molstar/lib/mol-state';
@@ -89,6 +89,29 @@ function defaultReprFor(loci: StructureElement.Loci): RepresentationType {
   return 'ball-and-stick';
 }
 
+/** The polymer-only subset of a loci. A cartoon draws only polymer, so when a selection
+ *  mixes polymer with waters/ligands we hide just this subset of the preset — leaving the
+ *  non-polymer atoms drawn by the preset instead of vanishing (hidden but never redrawn).
+ *  Returns an empty-elements loci if the selection has no polymer. */
+function polymerSubsetLoci(loci: StructureElement.Loci): StructureElement.Loci {
+  const loc = StructureElement.Location.create(loci.structure);
+  const elements: { unit: Unit; indices: OrderedSet<StructureElement.UnitIndex> }[] = [];
+  for (const e of loci.elements) {
+    loc.unit = e.unit;
+    const kept: StructureElement.UnitIndex[] = [];
+    const n = OrderedSet.size(e.indices);
+    for (let i = 0; i < n; i++) {
+      const p = OrderedSet.getAt(e.indices, i);
+      loc.element = e.unit.elements[p];
+      if (StructureProperties.entity.type(loc) === 'polymer') kept.push(p);
+    }
+    if (kept.length > 0) {
+      elements.push({ unit: e.unit, indices: OrderedSet.ofSortedArray(SortedArray.ofSortedArray(kept)) });
+    }
+  }
+  return StructureElement.Loci(loci.structure, elements);
+}
+
 /**
  * The real ExecutorContext: drives a live Mol* plugin behind the Plan-2 port, so
  * the provider-agnostic executor never touches Mol* managers directly.
@@ -137,14 +160,22 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
   const currentVdvRefs = (): Set<string> =>
     new Set([...components.values()].map((e) => e.component?.ref).filter((r): r is string => !!r));
 
-  /** Hide the preset's draw of `loci` (per-loci transparency = 1) so an owned vdv
-   *  component is the only thing rendered for those atoms. Targets preset components
-   *  only, never our own vdv components. */
-  async function hidePresetCoverage(loci: StructureElement.Loci): Promise<void> {
+  /** Hide the preset's draw of a styled selection so the owned vdv component is the only
+   *  thing rendered for those atoms. A cartoon draws only polymer, so for cartoon we hide
+   *  just the polymer subset — otherwise non-polymer atoms (waters/ligands) in the selection
+   *  would be hidden yet never redrawn. The whole selection is restored first so switching
+   *  rep types never leaves stale-hidden atoms behind. Targets the preset only, never our
+   *  own vdv components. */
+  async function hidePresetCoverage(
+    loci: StructureElement.Loci,
+    type: RepresentationType,
+  ): Promise<void> {
     const vdvRefs = currentVdvRefs();
     const presetOnly = presetComponents().filter((c) => !vdvRefs.has(c.cell.transform.ref));
     if (presetOnly.length === 0) return;
-    await setStructureTransparency(plugin, presetOnly, 1, async () => loci);
+    const toHide = type === 'cartoon' ? polymerSubsetLoci(loci) : loci;
+    await setStructureTransparency(plugin, presetOnly, 0, async () => loci);
+    await setStructureTransparency(plugin, presetOnly, 1, async () => toHide);
   }
 
   /** Get-or-create the per-selection component for a loci. */
@@ -353,7 +384,7 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
         const component = await componentFor(loci);
         if (!component) return;
         await applyStyle(key, type, components.get(key)?.color);
-        await hidePresetCoverage(loci);
+        await hidePresetCoverage(loci, type);
       });
     },
 
@@ -369,7 +400,7 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
         if (!component) return;
         const type = components.get(key)?.reprType ?? defaultReprFor(loci);
         await applyStyle(key, type, color);
-        await hidePresetCoverage(loci);
+        await hidePresetCoverage(loci, type);
       });
     },
 

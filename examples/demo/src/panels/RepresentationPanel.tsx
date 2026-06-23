@@ -45,7 +45,10 @@ export function RepresentationPanel() {
         </button>
       ))}{' '}
       <button disabled={disabled} onClick={() => run({ name: 'set-color', input: { selection: sel, color: '#1e90ff' } })}>
-        hex #1e90ff
+        hex blue
+      </button>{' '}
+      <button disabled={disabled} onClick={() => run({ name: 'set-color', input: { selection: sel, color: '#e11d48' } })}>
+        hex red
       </button>
       <hr style={{ borderColor: '#333' }} />
       <button disabled={disabled} onClick={() => run({ name: 'toggle-visibility', input: { selection: sel, visible: false } })}>
