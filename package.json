@@ -24,8 +24,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "build": "tsup",
-    "prepublishOnly": "pnpm build",
-    "verify:package": "pnpm build && publint && attw --pack --profile esm-only && node scripts/assert-agent-side-molstar-free.mjs && node scripts/smoke-dist.mjs"
+    "prepublishOnly": "pnpm verify:package",
+    "verify:package": "pnpm typecheck && pnpm test && pnpm build && publint && attw --pack --profile esm-only && node scripts/assert-agent-side-molstar-free.mjs && node scripts/smoke-dist.mjs"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.3",
@@ -48,12 +48,6 @@
   },
   "peerDependenciesMeta": {
     "molstar": {
-      "optional": true
-    },
-    "react": {
-      "optional": true
-    },
-    "react-dom": {
       "optional": true
     }
   }

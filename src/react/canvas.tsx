@@ -42,9 +42,21 @@ export function MolViewCanvas(props: HTMLAttributes<HTMLDivElement>) {
       created = view;
       registerView(view);
     })().catch((err) => {
-      // Mount failure (e.g. WebGL unavailable). Log so it isn't a silent unhandled
-      // rejection; a richer onError/error-state surface is a Plan-3 handoff item.
-      if (!disposed) console.error('[van-der-view] <MolViewCanvas> failed to initialize Mol*:', err);
+      // Mount failure. Log so it isn't a silent unhandled rejection; a richer
+      // onError/error-state surface is a Plan-3 handoff item. `molstar` is an optional
+      // peer (the agent-side entry never needs it), so a module-resolution error here
+      // means the browser entry's molstar peer wasn't installed — surface an actionable hint.
+      if (disposed) return;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/molstar/i.test(msg) && /cannot find|module not found|failed to (resolve|fetch|load)/i.test(msg)) {
+        console.error(
+          '[van-der-view] <MolViewCanvas> could not load "molstar" — it is a required peer ' +
+            'dependency for the browser entry. Install it (e.g. `npm install molstar`). Original error:',
+          err,
+        );
+      } else {
+        console.error('[van-der-view] <MolViewCanvas> failed to initialize Mol*:', err);
+      }
     });
     return () => {
       disposed = true;
