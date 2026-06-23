@@ -13,8 +13,8 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
-      "@abycloud-co-uk/van-der-view": ["../../src/index.ts"],
-      "@abycloud-co-uk/van-der-view/browser": ["../../src/browser.ts"]
+      "@abycloud-co-uk/van-der-view/browser": ["../../src/browser.ts"],
+      "@abycloud-co-uk/van-der-view": ["../../src/index.ts"]
     }
   },
   "include": ["src"]
