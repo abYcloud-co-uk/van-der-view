@@ -4,7 +4,7 @@ import type { Command, CommandResult, Selection } from './types';
 import { err, ok } from './types';
 import { COLOR_SCHEMES, REPRESENTATION_TYPES } from './types';
 import type { ColorScheme, MeasureDistanceResult, RepresentationType } from './types';
-import { isPlainObject } from './util';
+import { createSerializer, isPlainObject } from './util';
 import type { ExecutorContext, FocusOptions, PlayTrajectoryOptions } from './context';
 import type { ColorSpec } from './context';
 import { ExecutorError } from './errors';
@@ -120,7 +120,7 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
   const resolveStructure = options.resolveStructure ?? defaultResolveStructure;
   const resolveCoordinates = options.resolveCoordinates ?? defaultResolveCoordinates;
 
-  async function dispatch(command: Command): Promise<CommandResult> {
+  async function execute(command: Command): Promise<CommandResult> {
     try {
       switch (command.name) {
         case 'load-structure': {
@@ -259,6 +259,21 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
       if (e instanceof ExecutorError) return fail(e.code, e.message);
       return fail('internal_error', e instanceof Error ? e.message : String(e));
     }
+  }
+
+  // Serialize scene-mutating commands so rapid calls can't interleave and race: `loadStructure`
+  // clears the scene at the start of each call, so without this two concurrent loads could both
+  // clear then both load — leaving the *older* one visible with no error (#23). FIFO order means
+  // the last-dispatched mutation is the final state. (A host mutator that never settles will block
+  // subsequent mutations — host hooks must settle or reject.)
+  //
+  // Pure reads never mutate the scene, so they run immediately rather than queue behind a long or
+  // stuck mutation (e.g. polling get-scene-context for load progress) — a hung mutation can't
+  // freeze state inspection (#4).
+  const readOnly = new Set<Command['name']>(['get-scene-context', 'measure-distance']);
+  const serialize = createSerializer();
+  function dispatch(command: Command): Promise<CommandResult> {
+    return readOnly.has(command.name) ? execute(command) : serialize(() => execute(command));
   }
 
   return { dispatch };

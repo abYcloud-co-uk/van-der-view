@@ -6,6 +6,7 @@ import type { ExecutorContext, SceneContext } from '../src/context';
 import { createExecutor } from '../src/executor';
 import type { CommandResult } from '../src/types';
 import { ExecutorError } from '../src/errors';
+import type { LoadInput, ResolvedStructure } from '../src/resolve-structure';
 
 let structure: Structure | undefined;
 beforeAll(async () => { structure = await buildStructureFromPDB(PDB_TINY); });
@@ -562,5 +563,57 @@ describe('createExecutor — representation cluster (v1.1a)', () => {
       name: 'set-representation', input: { selection: { chain: 'A' }, type: 'cartoon' },
     });
     expect(errorOf(res).code).toBe('internal_error');
+  });
+});
+
+describe('createExecutor — concurrent dispatch serialization (#23)', () => {
+  it('serializes concurrent load-structure dispatches so they never interleave', async () => {
+    const order: string[] = [];
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    let call = 0;
+    const loadStructure = vi.fn(async (resolved: ResolvedStructure) => {
+      order.push(`start:${resolved.data}`);
+      if (call++ === 0) await firstGate; // first load stays in-flight until released
+      order.push(`end:${resolved.data}`);
+    });
+    // Echo the inline data through so loadStructure sees 'A' / 'B'.
+    const resolveStructure = vi.fn(
+      async (input: LoadInput) => ({ data: (input as { data?: string }).data, format: 'mmcif' as const }),
+    );
+    const { dispatch } = createExecutor(fakeContext({ loadStructure }), { resolveStructure });
+
+    const p1 = dispatch({ name: 'load-structure', input: { source: 'inline', data: 'A', format: 'mmcif' } });
+    const p2 = dispatch({ name: 'load-structure', input: { source: 'inline', data: 'B', format: 'mmcif' } });
+
+    // Drain all microtasks: A is in-flight (blocked on the gate); B must not have started yet.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(order).toEqual(['start:A']);
+
+    releaseFirst();
+    await Promise.all([p1, p2]);
+    // B ran only after A fully finished — dispatch order preserved, no interleave.
+    expect(order).toEqual(['start:A', 'end:A', 'start:B', 'end:B']);
+  });
+
+  it('runs read-only commands immediately instead of queuing them behind an in-flight mutation (#4)', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const loadStructure = vi.fn(async () => { await gate; }); // stays in-flight until released
+    const resolveStructure = vi.fn(async () => ({ data: 'X', format: 'mmcif' as const }));
+    const { dispatch } = createExecutor(fakeContext({ loadStructure }), { resolveStructure });
+
+    const loadP = dispatch({ name: 'load-structure', input: { source: 'inline', data: 'X', format: 'mmcif' } });
+    // A read dispatched while the load is stuck must resolve without waiting for it.
+    const read = await Promise.race([
+      dispatch({ name: 'get-scene-context', input: {} }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('read was queued behind the in-flight mutation')), 200),
+      ),
+    ]);
+    expect(read).toMatchObject({ ok: true });
+
+    release();
+    await loadP;
   });
 });

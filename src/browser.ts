@@ -5,6 +5,7 @@
 export { MolViewProvider } from './react/provider';
 export type { MolViewConfig, MolViewProviderProps } from './react/provider';
 export { MolViewCanvas } from './react/canvas';
+export type { MolViewCanvasProps } from './react/canvas';
 export { useMolView } from './react/use-mol-view';
 export type { MolView, CreateMolViewOptions } from './mol/create-mol-view';
 export type { MolViewXR } from './mol/xr';

@@ -14,6 +14,7 @@ import { setSubtreeVisibility } from 'molstar/lib/mol-plugin/behavior/static/sta
 import { setStructureTransparency } from 'molstar/lib/mol-plugin-state/helpers/structure-transparency';
 import type { StateObjectSelector } from 'molstar/lib/mol-state';
 import { ExecutorError } from '../errors';
+import { createSerializer } from '../util';
 import type { ColorScheme, RepresentationType } from '../types';
 import type { ColorSpec } from '../context';
 
@@ -141,14 +142,8 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
    *  single preset transparency cell and the component tree — so even calls on *different*
    *  selections must not interleave their read-modify-write commits (a per-loci-key lock
    *  wouldn't stop a chain-A vs chain-B race on the shared transparency cell). These ops are
-   *  infrequent GPU writes, so a global chain costs nothing real. The stored promise swallows
-   *  rejection so a failed op doesn't poison the chain; the awaiter still sees the real throw. */
-  let opChain: Promise<unknown> = Promise.resolve();
-  function serialize<T>(work: () => Promise<T>): Promise<T> {
-    const next = opChain.then(work);
-    opChain = next.catch(() => {});
-    return next;
-  }
+   *  infrequent GPU writes, so a global chain costs nothing real. */
+  const serialize = createSerializer();
 
   /** The preset's structure components (`default` preset from load-structure). The
    *  transparency helper hides their coverage of a styled selection, so the vdv
