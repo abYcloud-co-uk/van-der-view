@@ -120,7 +120,7 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
   const resolveStructure = options.resolveStructure ?? defaultResolveStructure;
   const resolveCoordinates = options.resolveCoordinates ?? defaultResolveCoordinates;
 
-  async function dispatch(command: Command): Promise<CommandResult> {
+  async function execute(command: Command): Promise<CommandResult> {
     try {
       switch (command.name) {
         case 'load-structure': {
@@ -259,6 +259,20 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
       if (e instanceof ExecutorError) return fail(e.code, e.message);
       return fail('internal_error', e instanceof Error ? e.message : String(e));
     }
+  }
+
+  // Serialize the command stream: each dispatch waits for the previous one to settle before it
+  // runs, so rapid calls can't interleave their scene mutations and race. `loadStructure` clears
+  // the scene at the start of each call, so without this two concurrent loads could both clear
+  // then both load — leaving the *older* one visible with no error (#23). FIFO order means the
+  // last-dispatched command is the final state.
+  let chain: Promise<unknown> = Promise.resolve();
+  function dispatch(command: Command): Promise<CommandResult> {
+    const run = chain.then(() => execute(command));
+    // Swallow on the chain so one rejection can't poison later commands; the caller still awaits
+    // `run` and sees the real result (`execute` never throws — it maps everything to fail()).
+    chain = run.catch(() => {});
+    return run;
   }
 
   return { dispatch };

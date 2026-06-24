@@ -6,6 +6,7 @@ import type { ExecutorContext, SceneContext } from '../src/context';
 import { createExecutor } from '../src/executor';
 import type { CommandResult } from '../src/types';
 import { ExecutorError } from '../src/errors';
+import type { LoadInput, ResolvedStructure } from '../src/resolve-structure';
 
 let structure: Structure | undefined;
 beforeAll(async () => { structure = await buildStructureFromPDB(PDB_TINY); });
@@ -562,5 +563,36 @@ describe('createExecutor — representation cluster (v1.1a)', () => {
       name: 'set-representation', input: { selection: { chain: 'A' }, type: 'cartoon' },
     });
     expect(errorOf(res).code).toBe('internal_error');
+  });
+});
+
+describe('createExecutor — concurrent dispatch serialization (#23)', () => {
+  it('serializes concurrent load-structure dispatches so they never interleave', async () => {
+    const order: string[] = [];
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    let call = 0;
+    const loadStructure = vi.fn(async (resolved: ResolvedStructure) => {
+      order.push(`start:${resolved.data}`);
+      if (call++ === 0) await firstGate; // first load stays in-flight until released
+      order.push(`end:${resolved.data}`);
+    });
+    // Echo the inline data through so loadStructure sees 'A' / 'B'.
+    const resolveStructure = vi.fn(
+      async (input: LoadInput) => ({ data: (input as { data?: string }).data, format: 'mmcif' as const }),
+    );
+    const { dispatch } = createExecutor(fakeContext({ loadStructure }), { resolveStructure });
+
+    const p1 = dispatch({ name: 'load-structure', input: { source: 'inline', data: 'A', format: 'mmcif' } });
+    const p2 = dispatch({ name: 'load-structure', input: { source: 'inline', data: 'B', format: 'mmcif' } });
+
+    // Drain all microtasks: A is in-flight (blocked on the gate); B must not have started yet.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(order).toEqual(['start:A']);
+
+    releaseFirst();
+    await Promise.all([p1, p2]);
+    // B ran only after A fully finished — dispatch order preserved, no interleave.
+    expect(order).toEqual(['start:A', 'end:A', 'start:B', 'end:B']);
   });
 });
