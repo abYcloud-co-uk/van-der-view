@@ -1,6 +1,6 @@
 {
   "name": "@abycloud-co-uk/van-der-view",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Headless React bridge between an AI agent and the Mol* 3D molecular renderer.",
   "type": "module",
   "license": "MIT",
