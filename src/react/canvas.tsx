@@ -8,9 +8,10 @@ import { useMolViewContext } from './provider';
  * the container <div>.
  */
 export interface MolViewCanvasProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onError'> {
-  /** Called if viewer initialization fails (WebGL context creation, missing molstar peer, …).
-   *  Lets the host render an error state — otherwise a failed init is indistinguishable from a
-   *  slow-but-pending one (`useMolView()` stays `undefined` either way). */
+  /** Called once if **viewer initialization** fails (WebGL context creation, a missing molstar
+   *  peer, …) — lets the host render an error state instead of an indefinite pending one
+   *  (`useMolView()` stays `undefined` either way). It does NOT cover per-command failures after a
+   *  successful mount: those come back as an error `CommandResult` from `dispatch`. (#7) */
   onError?: (error: Error) => void;
 }
 
@@ -61,6 +62,11 @@ export function MolViewCanvas({ onError, ...props }: MolViewCanvasProps) {
       // onError (#24). `molstar` is an optional peer (the agent-side entry never needs it), so a
       // module-resolution error here means the browser entry's molstar peer wasn't installed —
       // give an actionable hint in that case.
+      //
+      // Suppress stale runs: `disposed` is set by cleanup on unmount or a [plugin] re-init, so a
+      // failure reaching here is from a superseded/unmounted run — the live run (if any) fires
+      // onError from its own catch. A stable live mount keeps disposed===false, so real init
+      // failures still surface to the host (#2).
       if (disposed) return;
       const msg = err instanceof Error ? err.message : String(err);
       if (/molstar/i.test(msg) && /cannot find|module not found|failed to (resolve|fetch|load)/i.test(msg)) {
@@ -73,7 +79,13 @@ export function MolViewCanvas({ onError, ...props }: MolViewCanvasProps) {
         console.error('[van-der-view] <MolViewCanvas> failed to initialize Mol*:', err);
       }
       // Let the host render an error state instead of an indefinite pending/undefined view.
-      onErrorRef.current?.(err instanceof Error ? err : new Error(msg));
+      // Contain a throwing callback so it can't escape as an unhandled rejection on this terminal
+      // promise chain (#3).
+      try {
+        onErrorRef.current?.(err instanceof Error ? err : new Error(msg));
+      } catch (callbackError) {
+        console.error('[van-der-view] <MolViewCanvas> onError callback threw:', callbackError);
+      }
     });
     return () => {
       disposed = true;

@@ -47,4 +47,37 @@ describe('MolViewCanvas — init-error surface (#24)', () => {
     container.remove();
     errorSpy.mockRestore();
   });
+
+  it('contains a throwing onError callback instead of letting it become an unhandled rejection (#3)', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const onError = vi.fn(() => {
+      throw new Error('callback boom');
+    });
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <MolViewProvider>
+          <MolViewCanvas onError={onError} />
+        </MolViewProvider>,
+      );
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    // The throw is contained (logged), not propagated off the effect's terminal promise chain.
+    expect(
+      errorSpy.mock.calls.some((call) => String(call[0]).includes('onError callback threw')),
+    ).toBe(true);
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
+    errorSpy.mockRestore();
+  });
 });

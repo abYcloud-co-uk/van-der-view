@@ -595,4 +595,25 @@ describe('createExecutor — concurrent dispatch serialization (#23)', () => {
     // B ran only after A fully finished — dispatch order preserved, no interleave.
     expect(order).toEqual(['start:A', 'end:A', 'start:B', 'end:B']);
   });
+
+  it('runs read-only commands immediately instead of queuing them behind an in-flight mutation (#4)', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const loadStructure = vi.fn(async () => { await gate; }); // stays in-flight until released
+    const resolveStructure = vi.fn(async () => ({ data: 'X', format: 'mmcif' as const }));
+    const { dispatch } = createExecutor(fakeContext({ loadStructure }), { resolveStructure });
+
+    const loadP = dispatch({ name: 'load-structure', input: { source: 'inline', data: 'X', format: 'mmcif' } });
+    // A read dispatched while the load is stuck must resolve without waiting for it.
+    const read = await Promise.race([
+      dispatch({ name: 'get-scene-context', input: {} }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('read was queued behind the in-flight mutation')), 200),
+      ),
+    ]);
+    expect(read).toMatchObject({ ok: true });
+
+    release();
+    await loadP;
+  });
 });
