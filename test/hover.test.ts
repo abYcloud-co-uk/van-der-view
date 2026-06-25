@@ -67,3 +67,54 @@ describe('toHoverInfo', () => {
     expect(toHoverInfo(hoverEvent(residue))!.loci).toBe(residue);
   });
 });
+
+import { vi } from 'vitest';
+import { subscribeHoverEvents, type HoverSource } from '../src/hover';
+
+function fakeSource() {
+  let observer: ((e: InteractivityManager.HoverEvent) => void) | undefined;
+  const unsubscribe = vi.fn();
+  const source: HoverSource = {
+    subscribe: (o) => { observer = o; return { unsubscribe }; },
+  };
+  return { source, unsubscribe, emit: (e: InteractivityManager.HoverEvent) => observer!(e) };
+}
+
+describe('subscribeHoverEvents', () => {
+  it('maps events through toHoverInfo and delivers them to the callback', async () => {
+    const structure = await buildStructureFromPDB(PDB_TINY);
+    const residue = resolveSelection({ chain: 'A', residues: [1], numbering: 'auth' }, structure);
+    const { source, emit } = fakeSource();
+    const cb = vi.fn();
+    subscribeHoverEvents(source, cb);
+
+    emit(hoverEvent(residue));
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect((cb.mock.calls[0][0] as HoverInfo).chain).toBe('A');
+
+    const empty = resolveSelection({ chain: 'Z' }, structure);
+    emit(hoverEvent(empty));
+    expect(cb).toHaveBeenCalledTimes(2);
+    expect(cb.mock.calls[1][0]).toBeNull();
+  });
+
+  it('contains a throwing callback (so it cannot break the shared hover Subject)', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const structure = await buildStructureFromPDB(PDB_TINY);
+    const residue = resolveSelection({ chain: 'A', residues: [1], numbering: 'auth' }, structure);
+    const { source, emit } = fakeSource();
+    subscribeHoverEvents(source, () => { throw new Error('host boom'); });
+
+    expect(() => emit(hoverEvent(residue))).not.toThrow();
+    expect(errorSpy.mock.calls.some((c) => String(c[0]).includes('callback threw'))).toBe(true);
+    errorSpy.mockRestore();
+  });
+
+  it('returns an unsubscribe that tears down the source subscription', () => {
+    const { source, unsubscribe } = fakeSource();
+    const off = subscribeHoverEvents(source, vi.fn());
+    expect(unsubscribe).not.toHaveBeenCalled();
+    off();
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+});

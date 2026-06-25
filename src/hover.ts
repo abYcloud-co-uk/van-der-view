@@ -58,3 +58,35 @@ export function toHoverInfo(event: InteractivityManager.HoverEvent): HoverInfo |
   }
   return info;
 }
+
+/** Minimal structural shape of the Mol* hover Subject (`plugin.behaviors.interaction.hover`),
+ *  so the wiring is testable with a fake source and needs no rxjs import. */
+export interface HoverSource {
+  subscribe(observer: (event: InteractivityManager.HoverEvent) => void): { unsubscribe(): void };
+}
+
+/**
+ * Subscribe to a hover source, deliver each event mapped through `toHoverInfo` (or `null`)
+ * to `cb`, and return an unsubscribe. Both the mapping and the host callback are contained:
+ * a throw must not propagate into the rxjs Subject, which is the SAME Subject that drives
+ * Mol*'s hover-highlight — an uncontained throw would break core rendering, not just the host.
+ */
+export function subscribeHoverEvents(
+  source: HoverSource,
+  cb: (info: HoverInfo | null) => void,
+): () => void {
+  const sub = source.subscribe((event) => {
+    let info: HoverInfo | null = null;
+    try {
+      info = toHoverInfo(event);
+    } catch (err) {
+      console.error('[van-der-view] subscribeHover: toHoverInfo failed:', err);
+    }
+    try {
+      cb(info);
+    } catch (err) {
+      console.error('[van-der-view] subscribeHover callback threw:', err);
+    }
+  });
+  return () => sub.unsubscribe();
+}
