@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MolViewProvider, MolViewCanvas } from '../src/browser';
+import { createMolView } from '../src/mol/create-mol-view';
 
 // Mock the viewer factory so init fails — exercises the canvas's init-error path off-GPU
 // (no real molstar / WebGL). Both the static and the canvas's dynamic import resolve here.
@@ -77,6 +78,49 @@ describe('MolViewCanvas — init-error surface (#24)', () => {
     await act(async () => {
       root.unmount();
     });
+    container.remove();
+    errorSpy.mockRestore();
+  });
+});
+
+describe('MolViewCanvas — onHover (#29)', () => {
+  it('wires onHover through subscribeHover and unsubscribes on unmount', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    let hoverCb: ((info: unknown) => void) | undefined;
+    const unsub = vi.fn();
+    const fakeView = {
+      dispose: vi.fn(),
+      subscribeHover: vi.fn((cb: (info: unknown) => void) => { hoverCb = cb; return unsub; }),
+    };
+    vi.mocked(createMolView).mockResolvedValueOnce(
+      fakeView as unknown as Awaited<ReturnType<typeof createMolView>>,
+    );
+
+    const onHover = vi.fn();
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <MolViewProvider>
+          <MolViewCanvas onHover={onHover} />
+        </MolViewProvider>,
+      );
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+
+    expect(fakeView.subscribeHover).toHaveBeenCalledTimes(1);
+
+    // The canvas passes a stable wrapper; firing it calls the host onHover with the same value.
+    const info = { label: 'GLY 1', chain: 'A', loci: {} };
+    act(() => { hoverCb!(info); });
+    expect(onHover).toHaveBeenCalledWith(info);
+    act(() => { hoverCb!(null); });
+    expect(onHover).toHaveBeenLastCalledWith(null);
+
+    await act(async () => { root.unmount(); });
+    expect(unsub).toHaveBeenCalledTimes(1);
     container.remove();
     errorSpy.mockRestore();
   });

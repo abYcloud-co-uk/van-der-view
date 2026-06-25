@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, type CSSProperties, type HTMLAttributes } from 'react';
 import { useMolViewContext } from './provider';
+import type { HoverInfo } from '../hover';
 
 /**
  * Props for {@link MolViewCanvas}. Omits the DOM `onError` (a SyntheticEvent handler) so the
@@ -13,6 +14,10 @@ export interface MolViewCanvasProps extends Omit<HTMLAttributes<HTMLDivElement>,
    *  (`useMolView()` stays `undefined` either way). It does NOT cover per-command failures after a
    *  successful mount: those come back as an error `CommandResult` from `dispatch`. (#7) */
   onError?: (error: Error) => void;
+  /** Called on pointer hover with info about the element under the cursor, or `null` when the
+   *  pointer is over empty space — for rendering a custom tooltip on the bare canvas (#29). A
+   *  throwing callback is contained. */
+  onHover?: (info: HoverInfo | null) => void;
 }
 
 /**
@@ -23,7 +28,7 @@ export interface MolViewCanvasProps extends Omit<HTMLAttributes<HTMLDivElement>,
  * SSR-safe: molstar is reached only via a dynamic import inside useEffect, which
  * does not run during renderToString — so nothing touches WebGL/window server-side.
  */
-export function MolViewCanvas({ onError, ...props }: MolViewCanvasProps) {
+export function MolViewCanvas({ onError, onHover, ...props }: MolViewCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctx = useMolViewContext();
@@ -32,6 +37,9 @@ export function MolViewCanvas({ onError, ...props }: MolViewCanvasProps) {
   // Ref so a changing onError identity doesn't re-run the init effect (keyed on [plugin]).
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
+  // Ref so a changing onHover identity doesn't re-run the init effect (keyed on [plugin]).
+  const onHoverRef = useRef(onHover);
+  onHoverRef.current = onHover;
   const { plugin } = ctx;
 
   // Re-initialize when the host `plugin` changes — covers a host that mounts the
@@ -43,6 +51,7 @@ export function MolViewCanvas({ onError, ...props }: MolViewCanvasProps) {
   useEffect(() => {
     let disposed = false;
     let created: { dispose(): void } | undefined;
+    let unsubHover: (() => void) | undefined;
     (async () => {
       const { createMolView } = await import('../mol/create-mol-view');
       if (disposed || !canvasRef.current || !containerRef.current) return;
@@ -57,6 +66,9 @@ export function MolViewCanvas({ onError, ...props }: MolViewCanvasProps) {
       if (disposed) { view.dispose(); return; }
       created = view;
       registerView(view);
+      // Subscribe unconditionally (one cheap listener): a host that adds onHover later works
+      // without a re-init, and the ref indirection keeps the [plugin] effect stable.
+      unsubHover = view.subscribeHover((info) => onHoverRef.current?.(info));
     })().catch((err) => {
       // Mount failure. Log so it isn't a silent unhandled rejection AND surface it to the host via
       // onError (#24). `molstar` is an optional peer (the agent-side entry never needs it), so a
@@ -89,6 +101,7 @@ export function MolViewCanvas({ onError, ...props }: MolViewCanvasProps) {
     });
     return () => {
       disposed = true;
+      unsubHover?.();
       ctxRef.current.registerView(undefined);
       created?.dispose();
     };
