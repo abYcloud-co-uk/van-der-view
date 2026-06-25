@@ -165,11 +165,14 @@ No new error codes, no change to `dispatch`/`CommandResult`.
   absent for a residue/multi-atom loci; `screen` derived from `page`; empty loci →
   `null`. `lociLabel` confirmed Node-safe (§2).
 - **`test/canvas.test.tsx` (extend).** With `createMolView` mocked to return a fake
-  view exposing a `subscribeHover` stub: `onHover` is wired through, the returned
-  unsubscribe is called on unmount, and a throwing `onHover` is contained.
+  view exposing a `subscribeHover` stub: `onHover` is wired through and the returned
+  unsubscribe is called on unmount. (Containment of a throwing host callback is **not**
+  retested here — it lives in `subscribeHoverEvents` and is covered by `test/hover.test.ts`;
+  the canvas's fake `subscribeHover` stub has no containment, so the canvas test scope is
+  wiring + lifecycle only.)
 - **GPU-bound** (real Subject + picking, demo tooltip): typecheck-gated + manual
   verification in the demo.
-- Suite: **149 → ~158**.
+- Suite: **149 → 159** (hover.ts +9, canvas onHover +1).
 
 ## 7. Scope
 
