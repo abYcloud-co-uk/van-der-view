@@ -7,6 +7,7 @@ import type { ResolveCoordinates } from '../resolve-coordinates';
 import { createExecutor } from '../executor';
 import { molstarExecutorContext } from './adapter';
 import { createXrApi, type MolViewXR } from './xr';
+import { subscribeHoverEvents, type HoverInfo } from '../hover';
 
 export interface CreateMolViewOptions {
   /** Canvas to render into. Required unless an already-initialized `plugin` is given. */
@@ -26,6 +27,13 @@ export interface MolView {
   dispatch(command: Command): Promise<CommandResult>;
   getSceneContext(): SceneContext;
   clearHighlight(): void;
+  /**
+   * Subscribe to pointer-hover changes for a host tooltip. The callback gets a `HoverInfo`
+   * for whatever is under the cursor, or `null` when the pointer is over empty space.
+   * Returns an unsubscribe. A throwing callback is contained (it can't break Mol*'s own
+   * hover-highlight). Note: fires once on subscribe with the current state (usually `null`).
+   */
+  subscribeHover(cb: (info: HoverInfo | null) => void): () => void;
   xr: MolViewXR;
   /** Escape hatch: the underlying Mol* plugin. */
   plugin: PluginContext;
@@ -70,6 +78,7 @@ export async function createMolView(opts: CreateMolViewOptions): Promise<MolView
     dispatch,
     getSceneContext: () => ctx.getSceneContext(),
     clearHighlight: () => ctx.clearHighlight(),
+    subscribeHover: (cb) => subscribeHoverEvents(bound.behaviors.interaction.hover, cb),
     xr,
     plugin: bound,
     handleResize: () => bound.canvas3d?.handleResize(),
