@@ -70,6 +70,9 @@ export interface HoverSource {
  * to `cb`, and return an unsubscribe. Both the mapping and the host callback are contained:
  * a throw must not propagate into the rxjs Subject, which is the SAME Subject that drives
  * Mol*'s hover-highlight — an uncontained throw would break core rendering, not just the host.
+ * If `toHoverInfo` itself throws, the error is logged and the callback receives `null`
+ * (treated as 'nothing hovered'), so a mapping failure clears a tooltip rather than leaving
+ * stale data.
  */
 export function subscribeHoverEvents(
   source: HoverSource,

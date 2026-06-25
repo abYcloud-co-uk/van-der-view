@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Structure } from 'molstar/lib/mol-model/structure';
 import { StructureElement } from 'molstar/lib/mol-model/structure';
 import { OrderedSet } from 'molstar/lib/mol-data/int';
@@ -6,7 +6,7 @@ import { Vec2 } from 'molstar/lib/mol-math/linear-algebra';
 import type { InteractivityManager } from 'molstar/lib/mol-plugin-state/manager/interactivity';
 import { PDB_TINY, buildStructureFromPDB } from './fixtures/structures';
 import { resolveSelection } from '../src/selection';
-import { toHoverInfo, type HoverInfo } from '../src/hover';
+import { subscribeHoverEvents, toHoverInfo, type HoverInfo, type HoverSource } from '../src/hover';
 
 let structure: Structure;
 beforeAll(async () => { structure = await buildStructureFromPDB(PDB_TINY); });
@@ -67,9 +67,6 @@ describe('toHoverInfo', () => {
     expect(toHoverInfo(hoverEvent(residue))!.loci).toBe(residue);
   });
 });
-
-import { vi } from 'vitest';
-import { subscribeHoverEvents, type HoverSource } from '../src/hover';
 
 function fakeSource() {
   let observer: ((e: InteractivityManager.HoverEvent) => void) | undefined;
