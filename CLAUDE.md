@@ -85,15 +85,32 @@ cores have all landed** (`src/`):
   `MolViewCanvasProps`) surfaces a failed init (WebGL / missing molstar peer) instead of leaving
   `useMolView()` undefined; a throwing callback is contained. Addressed a 7-finding external review (#1/#3/#4/#6
   fixed, #2/#5 pushed back with reasoning). Suite now **149 tests**.
+- **Hover surface** (merged — PR #30, closes #29, 2026-06-25; consumer-driven; demo GPU-verified). Exposes the
+  hovered-structure info on the bare canvas so a host renders its own tooltip without touching Mol\* internals:
+  **`MolView.subscribeHover(cb)`** (root) + **`<MolViewCanvas onHover>`** (sugar) + exported **`HoverInfo`**
+  (`{ label, chain?, residueName?, residueNumber?, atomName?, screen?, loci }`; `label` = plain text via
+  `lociLabel({htmlStyling:false})`; structured fields = the representative first element; `atomName` only on a
+  single-atom hover; `screen` = pageX/pageY). New pure Node-tested `src/hover.ts` (`toHoverInfo` +
+  `subscribeHoverEvents` — contains a throwing host callback so it can't break Mol\*'s shared hover Subject, and
+  drops the BehaviorSubject's leading "nothing hovered" seed). The canvas subscribes **only when `onHover` is
+  present** (a dedicated effect) — zero per-pointer-move work otherwise. GPU-bound wiring is typecheck-gated +
+  demo-verified. Built brainstorm→spec→plan→subagent-driven (5 tasks, per-task + opus final review) then an
+  8-finding external review (7 fixed incl. the subscribe-only-when-`onHover` perf fix + seed suppression; 2
+  pushed back — keep `screen` as page coords since `toHoverInfo` is pure/Node/SSR, and the adapter loci idioms
+  differ enough to leave). **Hover only** — click (`onClick`/`subscribeClick`) is a deferred follow-up (the
+  extraction layer is built to be reused). Suite now **161 tests**. Spec/plan:
+  `docs/superpowers/{specs,plans}/2026-06-24-hover-surface*`.
 
-So the v1 runtime + the trajectory cluster + packaging + the v1.1a representation cluster are complete and
-**fully GPU-validated including WebXR**, the library is buildable/publishable, and **v0.2.0 is published and in
-production downstream**. Next (`docs/superpowers/plans/`): **v1.1b** (`highlight.style` + `load-scene`/`toggle-xr`,
-plus **multi-representation components** for mixed polymer+ligand selections — the one deferred limitation of the
-v1.1a appearance model), **trajectory follow-ups** (in-XR playback, palindrome/trim/multi-trajectory), and
-**load supersede/cancel** (open issue #27 — a newer `load-structure` should abort a superseded in-flight one;
-FIFO already fixed the #23 race, this is the performance follow-up). A **public npm** release is the packaging
-follow-up (deferred to a stable version; GitHub Packages needs auth even for public packages).
+So the v1 runtime + the trajectory cluster + packaging + the v1.1a representation cluster + the hover surface are
+complete and **fully GPU-validated including WebXR**, the library is buildable/publishable, and **v0.2.0 is
+published and in production downstream**. Next (`docs/superpowers/plans/`): **load supersede/cancel** (open issue
+#27 — a newer `load-structure` should abort a superseded in-flight one; FIFO already fixed the #23 race, this is
+the performance follow-up), a **click surface** follow-up to hover (#29 shipped hover only), **v1.1b**
+(`highlight.style` + `load-scene`/`toggle-xr`, plus **multi-representation components** for mixed polymer+ligand
+selections — the one deferred limitation of the v1.1a appearance model), and **trajectory follow-ups** (in-XR
+playback, palindrome/trim/multi-trajectory). A **public npm** release is the packaging follow-up (deferred to a
+stable version; GitHub Packages needs auth even for public packages). A **v0.3.0** release would bundle the hover
+surface (and #27 when done).
 
 Commands:
 - `pnpm test` — run the Vitest suite (`pnpm test:watch` to watch)
