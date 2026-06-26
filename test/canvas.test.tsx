@@ -124,4 +124,32 @@ describe('MolViewCanvas — onHover (#29)', () => {
     container.remove();
     errorSpy.mockRestore();
   });
+
+  it('does not subscribe to hover when no onHover is provided (no per-pointer-move work)', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const fakeView = { dispose: vi.fn(), subscribeHover: vi.fn(() => vi.fn()) };
+    vi.mocked(createMolView).mockResolvedValueOnce(
+      fakeView as unknown as Awaited<ReturnType<typeof createMolView>>,
+    );
+
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <MolViewProvider>
+          <MolViewCanvas />
+        </MolViewProvider>,
+      );
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+
+    // No host callback → no hover subscription at all, so toHoverInfo never runs on pointer-move.
+    expect(fakeView.subscribeHover).not.toHaveBeenCalled();
+
+    await act(async () => { root.unmount(); });
+    container.remove();
+    errorSpy.mockRestore();
+  });
 });

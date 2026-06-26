@@ -95,6 +95,32 @@ describe('subscribeHoverEvents', () => {
     expect(cb.mock.calls[1][0]).toBeNull();
   });
 
+  it('suppresses a leading null seed but delivers a non-null seed and later nulls', async () => {
+    const structure = await buildStructureFromPDB(PDB_TINY);
+    const residue = resolveSelection({ chain: 'A', residues: [1], numbering: 'auth' }, structure);
+    const empty = resolveSelection({ chain: 'Z' }, structure);
+
+    // A BehaviorSubject replays its seed synchronously on subscribe; when that seed is "nothing
+    // hovered" (the usual case at mount) it must NOT reach the host as a phantom event...
+    const a = fakeSource();
+    const cbA = vi.fn();
+    subscribeHoverEvents(a.source, cbA);
+    a.emit(hoverEvent(empty)); // the seed replay
+    expect(cbA).not.toHaveBeenCalled();
+    a.emit(hoverEvent(residue)); // a real hover
+    expect(cbA).toHaveBeenCalledTimes(1);
+    a.emit(hoverEvent(empty)); // pointer leaves → a real null, delivered
+    expect(cbA).toHaveBeenCalledTimes(2);
+    expect(cbA.mock.calls[1][0]).toBeNull();
+
+    // ...but a seed that already carries a hover (subscribed mid-hover) IS delivered.
+    const b = fakeSource();
+    const cbB = vi.fn();
+    subscribeHoverEvents(b.source, cbB);
+    b.emit(hoverEvent(residue));
+    expect(cbB).toHaveBeenCalledTimes(1);
+  });
+
   it('contains a throwing callback (so it cannot break the shared hover Subject)', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const structure = await buildStructureFromPDB(PDB_TINY);

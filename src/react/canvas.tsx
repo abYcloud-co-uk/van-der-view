@@ -37,10 +37,11 @@ export function MolViewCanvas({ onError, onHover, ...props }: MolViewCanvasProps
   // Ref so a changing onError identity doesn't re-run the init effect (keyed on [plugin]).
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
-  // Ref so a changing onHover identity doesn't re-run the init effect (keyed on [plugin]).
+  // Ref so a changing onHover identity doesn't re-subscribe; only its presence (below) does.
   const onHoverRef = useRef(onHover);
   onHoverRef.current = onHover;
-  const { plugin } = ctx;
+  const { plugin, view } = ctx;
+  const hasOnHover = onHover != null;
 
   // Re-initialize when the host `plugin` changes — covers a host that mounts the
   // canvas first and resolves its Mol* PluginContext asynchronously, passing it on a
@@ -51,7 +52,6 @@ export function MolViewCanvas({ onError, onHover, ...props }: MolViewCanvasProps
   useEffect(() => {
     let disposed = false;
     let created: { dispose(): void } | undefined;
-    let unsubHover: (() => void) | undefined;
     (async () => {
       const { createMolView } = await import('../mol/create-mol-view');
       if (disposed || !canvasRef.current || !containerRef.current) return;
@@ -66,9 +66,6 @@ export function MolViewCanvas({ onError, onHover, ...props }: MolViewCanvasProps
       if (disposed) { view.dispose(); return; }
       created = view;
       registerView(view);
-      // Subscribe unconditionally (one cheap listener): a host that adds onHover later works
-      // without a re-init, and the ref indirection keeps the [plugin] effect stable.
-      unsubHover = view.subscribeHover((info) => onHoverRef.current?.(info));
     })().catch((err) => {
       // Mount failure. Log so it isn't a silent unhandled rejection AND surface it to the host via
       // onError (#24). `molstar` is an optional peer (the agent-side entry never needs it), so a
@@ -101,11 +98,21 @@ export function MolViewCanvas({ onError, onHover, ...props }: MolViewCanvasProps
     });
     return () => {
       disposed = true;
-      unsubHover?.();
       ctxRef.current.registerView(undefined);
       created?.dispose();
     };
   }, [plugin]);
+
+  // Subscribe to hover only when the host actually wants it. Keyed on the live `view` and on
+  // onHover's PRESENCE (read identity-stably via the ref) — so a canvas with no onHover does ZERO
+  // per-pointer-move work (no toHoverInfo mapping), yet a host that adds onHover later still wires
+  // up without re-initializing the viewer. Cleanup runs before the init effect's dispose (effects
+  // tear down in reverse order), and on a host-provided plugin (never disposed by vdv) this is the
+  // only thing that detaches the listener.
+  useEffect(() => {
+    if (!view || !hasOnHover) return;
+    return view.subscribeHover((info) => onHoverRef.current?.(info));
+  }, [view, hasOnHover]);
 
   const { style, ...rest } = props;
   const containerStyle: CSSProperties = { position: 'relative', ...style };

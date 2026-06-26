@@ -29,9 +29,10 @@ export interface MolView {
   clearHighlight(): void;
   /**
    * Subscribe to pointer-hover changes for a host tooltip. The callback gets a `HoverInfo`
-   * for whatever is under the cursor, or `null` when the pointer is over empty space.
-   * Returns an unsubscribe. A throwing callback is contained (it can't break Mol*'s own
-   * hover-highlight). Note: fires once on subscribe with the current state (usually `null`).
+   * for whatever is under the cursor, or `null` when the pointer leaves a target. Returns an
+   * unsubscribe. A throwing callback is contained (it can't break Mol*'s own hover-highlight).
+   * The empty initial state is NOT delivered — the first call corresponds to an actual hover
+   * (or, if you subscribe while already hovering, that live target).
    */
   subscribeHover(cb: (info: HoverInfo | null) => void): () => void;
   xr: MolViewXR;

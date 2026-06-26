@@ -9,17 +9,25 @@ import { XrPanel } from './panels/XrPanel';
 import { TrajectoryPanel } from './panels/TrajectoryPanel';
 import { RepresentationPanel } from './panels/RepresentationPanel';
 
-export function App() {
+/**
+ * Canvas + a cursor-following hover tooltip. Owns the hover state HERE (not in `App`) so a
+ * pointer-move re-renders only this subtree — the panel column is spared.
+ */
+function HoverLayer() {
   const [hover, setHover] = useState<HoverInfo | null>(null);
   return (
-    <div style={{ display: 'flex', height: '100vh', fontFamily: 'system-ui, sans-serif', background: '#111', color: '#eee' }}>
+    <>
       <MolViewCanvas style={{ flex: 1, height: '100vh' }} onHover={setHover} />
-      {hover && (
+      {/* Render only when we have a position (`screen` may be absent on a non-pointer emit), so the
+          tooltip never pins to the corner. `screen` is pageX/pageY (document coords); this demo is
+          full-viewport and non-scrolling, so position:fixed needs no scroll offset — a scrolling
+          host would subtract window.scrollX/scrollY. */}
+      {hover?.screen && (
         <div
           style={{
             position: 'fixed',
-            left: (hover.screen?.x ?? 0) + 14,
-            top: (hover.screen?.y ?? 0) + 14,
+            left: hover.screen.x + 14,
+            top: hover.screen.y + 14,
             pointerEvents: 'none',
             background: 'rgba(0,0,0,0.85)',
             border: '1px solid #444',
@@ -31,7 +39,8 @@ export function App() {
           }}
         >
           <div>{hover.label}</div>
-          {hover.chain && (
+          {/* `!= null`, not truthiness — a real blank auth chain id ('') still has residue detail. */}
+          {hover.chain != null && (
             <div style={{ color: '#9cf', marginTop: 2 }}>
               {hover.chain} · {hover.residueName} {hover.residueNumber}
               {hover.atomName ? ` · ${hover.atomName}` : ''}
@@ -39,6 +48,14 @@ export function App() {
           )}
         </div>
       )}
+    </>
+  );
+}
+
+export function App() {
+  return (
+    <div style={{ display: 'flex', height: '100vh', fontFamily: 'system-ui, sans-serif', background: '#111', color: '#eee' }}>
+      <HoverLayer />
       <div style={{ width: 380, overflowY: 'auto', padding: 16, background: '#181818', borderLeft: '1px solid #333' }}>
         <h1 style={{ fontSize: 16, marginTop: 0 }}>van-der-view demo</h1>
         <LoadPanel />
