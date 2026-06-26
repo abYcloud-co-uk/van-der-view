@@ -45,6 +45,24 @@ function errorOf(res: CommandResult) {
   return res.error;
 }
 
+/** A loadStructure fake that blocks on a manual gate, records each resolved arg, and
+ *  (like the real adapter) honors abort only AFTER its await — so a load held here is
+ *  "in-flight" until released, then bails if its signal was aborted meanwhile. */
+function gatedLoad() {
+  let release!: () => void;
+  const gate = new Promise<void>((r) => { release = r; });
+  const calls: unknown[] = [];
+  const loadStructure = vi.fn(async (resolved: unknown, signal?: AbortSignal) => {
+    calls.push(resolved);
+    await gate;
+    signal?.throwIfAborted();
+  });
+  return { loadStructure, release, calls };
+}
+
+/** Resolve the microtask + macrotask queue so a just-dispatched load reaches the gate. */
+const flush = () => new Promise((r) => setTimeout(r, 0));
+
 describe('createExecutor — routing', () => {
   it('returns ok for get-scene-context with the scene data', async () => {
     const ctx = fakeContext();
@@ -169,10 +187,10 @@ describe('createExecutor — load-structure + input validation', () => {
       input: { source: 'pdb', id: '1crn' },
     });
     expect(res.ok).toBe(true);
-    expect(ctx.loadStructure).toHaveBeenCalledWith({
-      url: 'https://files.rcsb.org/download/1CRN.cif',
-      format: 'mmcif',
-    });
+    expect(ctx.loadStructure).toHaveBeenCalledWith(
+      { url: 'https://files.rcsb.org/download/1CRN.cif', format: 'mmcif' },
+      expect.any(AbortSignal),
+    );
   });
 
   it('uses a host resolveStructure override when provided', async () => {
@@ -184,7 +202,7 @@ describe('createExecutor — load-structure + input validation', () => {
     });
     expect(res.ok).toBe(true);
     expect(resolveStructure).toHaveBeenCalledOnce();
-    expect(ctx.loadStructure).toHaveBeenCalledWith({ data: 'INLINE', format: 'pdb' });
+    expect(ctx.loadStructure).toHaveBeenCalledWith({ data: 'INLINE', format: 'pdb' }, expect.any(AbortSignal));
   });
 
   it('returns invalid_input for load-structure missing required fields', async () => {
@@ -266,10 +284,13 @@ describe('createExecutor — trajectory cluster', () => {
       },
     });
     expect(res.ok).toBe(true);
-    expect(ctx.loadTrajectory).toHaveBeenCalledWith({
-      topology: { url: 'https://x/top.pdb', format: 'pdb' },
-      coordinates: { url: 'https://x/c.xtc', format: 'xtc', isBinary: true },
-    });
+    expect(ctx.loadTrajectory).toHaveBeenCalledWith(
+      {
+        topology: { url: 'https://x/top.pdb', format: 'pdb' },
+        coordinates: { url: 'https://x/c.xtc', format: 'xtc', isBinary: true },
+      },
+      expect.any(AbortSignal),
+    );
   });
 
   it('uses a host resolveCoordinates override', async () => {
@@ -285,10 +306,13 @@ describe('createExecutor — trajectory cluster', () => {
     });
     expect(res.ok).toBe(true);
     expect(resolveCoordinates).toHaveBeenCalledOnce();
-    expect(ctx.loadTrajectory).toHaveBeenCalledWith({
-      topology: { data: 'TOPDATA', format: 'pdb' },
-      coordinates: { data: bytes, format: 'xtc', isBinary: true },
-    });
+    expect(ctx.loadTrajectory).toHaveBeenCalledWith(
+      {
+        topology: { data: 'TOPDATA', format: 'pdb' },
+        coordinates: { data: bytes, format: 'xtc', isBinary: true },
+      },
+      expect.any(AbortSignal),
+    );
   });
 
   it('returns invalid_input when topology is missing', async () => {
@@ -571,10 +595,11 @@ describe('createExecutor — concurrent dispatch serialization (#23)', () => {
     const order: string[] = [];
     let releaseFirst!: () => void;
     const firstGate = new Promise<void>((resolve) => { releaseFirst = resolve; });
-    let call = 0;
     const loadStructure = vi.fn(async (resolved: ResolvedStructure) => {
       order.push(`start:${resolved.data}`);
-      if (call++ === 0) await firstGate; // first load stays in-flight until released
+      // Gate the first load to test non-interleave; supersession means only one
+      // load will actually call loadStructure when both are dispatched synchronously.
+      await firstGate;
       order.push(`end:${resolved.data}`);
     });
     // Echo the inline data through so loadStructure sees 'A' / 'B'.
@@ -586,14 +611,16 @@ describe('createExecutor — concurrent dispatch serialization (#23)', () => {
     const p1 = dispatch({ name: 'load-structure', input: { source: 'inline', data: 'A', format: 'mmcif' } });
     const p2 = dispatch({ name: 'load-structure', input: { source: 'inline', data: 'B', format: 'mmcif' } });
 
-    // Drain all microtasks: A is in-flight (blocked on the gate); B must not have started yet.
+    // Drain microtasks: B superseded A before it entered loadStructure, so only B runs.
+    // B starts (enters the gate); A returns superseded without calling loadStructure.
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(order).toEqual(['start:A']);
+    expect(order).toEqual(['start:B']);
 
     releaseFirst();
     await Promise.all([p1, p2]);
-    // B ran only after A fully finished — dispatch order preserved, no interleave.
-    expect(order).toEqual(['start:A', 'end:A', 'start:B', 'end:B']);
+    // B ran to completion; A was superseded (never entered loadStructure).
+    expect(order).toEqual(['start:B', 'end:B']);
+    expect(loadStructure).toHaveBeenCalledTimes(1);
   });
 
   it('runs read-only commands immediately instead of queuing them behind an in-flight mutation (#4)', async () => {
@@ -615,5 +642,58 @@ describe('createExecutor — concurrent dispatch serialization (#23)', () => {
 
     release();
     await loadP;
+  });
+});
+
+describe('createExecutor — supersession (#27)', () => {
+  it('supersedes earlier in-flight and queued loads; only the latest survives', async () => {
+    const { loadStructure, release, calls } = gatedLoad();
+    const exec = createExecutor(fakeContext({ loadStructure }));
+    const pA = exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1crn' } });
+    await flush();                                   // A enters the gate → in-flight
+    const pB = exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1hsg' } });
+    const pC = exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '4hhb' } });
+    release();
+    const [rA, rB, rC] = await Promise.all([pA, pB, pC]);
+    expect(errorOf(rA).code).toBe('superseded');     // in-flight: aborted at throwIfAborted
+    expect(errorOf(rB).code).toBe('superseded');     // queued: bailed at execute top
+    expect(rC.ok).toBe(true);                        // survivor
+    expect(loadStructure).toHaveBeenCalledTimes(2);  // A (in-flight) + C; B never called
+  });
+
+  it('threads an AbortSignal into ctx.loadStructure', async () => {
+    const ctx = fakeContext();
+    await createExecutor(ctx).dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1crn' } });
+    expect(ctx.loadStructure).toHaveBeenCalledWith(
+      { url: 'https://files.rcsb.org/download/1CRN.cif', format: 'mmcif' },
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('supersedes a non-load mutation queued before a load', async () => {
+    const { loadStructure, release } = gatedLoad();
+    const ctx = fakeContext({ loadStructure });
+    const exec = createExecutor(ctx);
+    const pLoad1 = exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1crn' } });
+    await flush();                                   // load1 in-flight
+    const pColor = exec.dispatch({ name: 'set-color', input: { selection: { chain: 'A' }, color: '#ff0000' } });
+    const pLoad2 = exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1hsg' } });
+    release();
+    const [r1, rColor, r2] = await Promise.all([pLoad1, pColor, pLoad2]);
+    expect(errorOf(r1).code).toBe('superseded');     // in-flight load superseded by load2
+    expect(errorOf(rColor).code).toBe('superseded'); // queued set-color superseded by load2
+    expect(ctx.setColor).not.toHaveBeenCalled();
+    expect(r2.ok).toBe(true);
+  });
+
+  it('lets get-scene-context bypass the queue during an in-flight load', async () => {
+    const { loadStructure, release } = gatedLoad();
+    const exec = createExecutor(fakeContext({ loadStructure }));
+    const pLoad = exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1crn' } });
+    await flush();                                   // load in-flight (gated)
+    const read = await exec.dispatch({ name: 'get-scene-context', input: {} });
+    expect(read.ok).toBe(true);                      // resolved now, not blocked behind the load
+    release();
+    await pLoad;
   });
 });

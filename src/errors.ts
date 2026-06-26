@@ -13,6 +13,7 @@ export type ErrorCode =
   | 'trajectory_mismatch'
   | 'empty_selection'
   | 'unknown_command'
+  | 'superseded'
   | 'internal_error';
 
 /** An executor-level failure carrying a stable `code` for the CommandResult error. */

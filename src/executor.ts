@@ -27,6 +27,9 @@ export interface ExecutorOptions {
 /** err() with the code constrained to the shared ErrorCode union (catches typos / divergence). */
 const fail = (code: ErrorCode, message: string): CommandResult => err(code, message);
 
+/** Message for a load/mutation dropped because a newer scene-replacing load superseded it. */
+const SUPERSEDED_MSG = 'superseded by a newer scene load.';
+
 function asObject(input: unknown): Record<string, unknown> {
   if (!isPlainObject(input)) {
     throw new ExecutorError('invalid_input', 'command input must be an object.');
@@ -120,15 +123,17 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
   const resolveStructure = options.resolveStructure ?? defaultResolveStructure;
   const resolveCoordinates = options.resolveCoordinates ?? defaultResolveCoordinates;
 
-  async function execute(command: Command): Promise<CommandResult> {
+  async function execute(command: Command, signal?: AbortSignal): Promise<CommandResult> {
+    if (signal?.aborted) return fail('superseded', SUPERSEDED_MSG);
     try {
       switch (command.name) {
         case 'load-structure': {
           const resolved = await resolveStructure(asObject(command.input) as unknown as LoadInput);
+          if (signal?.aborted) return fail('superseded', SUPERSEDED_MSG);
           if (resolved.url === undefined && resolved.data === undefined) {
             throw new ExecutorError('internal_error', 'resolveStructure returned neither a url nor inline data.');
           }
-          await ctx.loadStructure(resolved);
+          await ctx.loadStructure(resolved, signal);
           return ok();
         }
         case 'load-trajectory': {
@@ -147,7 +152,8 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
           if (coordinates.url === undefined && coordinates.data === undefined) {
             throw new ExecutorError('internal_error', 'resolveCoordinates returned neither a url nor bytes.');
           }
-          await ctx.loadTrajectory({ topology, coordinates });
+          if (signal?.aborted) return fail('superseded', SUPERSEDED_MSG);
+          await ctx.loadTrajectory({ topology, coordinates }, signal);
           return ok();
         }
         case 'play-trajectory': {
@@ -256,6 +262,7 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
           return fail('unknown_command', `unknown command "${command.name}".`);
       }
     } catch (e) {
+      if (signal?.aborted) return fail('superseded', SUPERSEDED_MSG);
       if (e instanceof ExecutorError) return fail(e.code, e.message);
       return fail('internal_error', e instanceof Error ? e.message : String(e));
     }
@@ -271,9 +278,22 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
   // stuck mutation (e.g. polling get-scene-context for load progress) — a hung mutation can't
   // freeze state inspection (#4).
   const readOnly = new Set<Command['name']>(['get-scene-context', 'measure-distance']);
+  // A scene-replacing load clears the scene, so when one is dispatched every earlier
+  // still-pending mutation (queued or in-flight) targets a scene about to vanish — abort
+  // them so they bail (returning `superseded`) instead of running superseded work (#27).
+  const sceneReplacing = new Set<Command['name']>(['load-structure', 'load-trajectory']);
   const serialize = createSerializer();
+  const pending = new Set<AbortController>();
   function dispatch(command: Command): Promise<CommandResult> {
-    return readOnly.has(command.name) ? execute(command) : serialize(() => execute(command));
+    if (readOnly.has(command.name)) return execute(command);
+    const controller = new AbortController();
+    if (sceneReplacing.has(command.name)) {
+      for (const c of pending) c.abort();
+    }
+    pending.add(controller);
+    return serialize(() => execute(command, controller.signal)).finally(() => {
+      pending.delete(controller);
+    });
   }
 
   return { dispatch };
