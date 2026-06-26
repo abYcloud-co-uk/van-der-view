@@ -8,6 +8,7 @@ import { PasteToolUsePanel } from './panels/PasteToolUsePanel';
 import { XrPanel } from './panels/XrPanel';
 import { TrajectoryPanel } from './panels/TrajectoryPanel';
 import { RepresentationPanel } from './panels/RepresentationPanel';
+import { SupersedePanel } from './panels/SupersedePanel';
 
 /**
  * Canvas + a cursor-following hover tooltip. Owns the hover state HERE (not in `App`) so a
@@ -66,6 +67,7 @@ export function App() {
         <StepperPanel />
         <PasteToolUsePanel />
         <XrPanel />
+        <SupersedePanel />
         {/* PANELS */}
       </div>
     </div>

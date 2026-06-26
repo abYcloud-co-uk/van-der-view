@@ -39,13 +39,13 @@ export type ColorSpec = { scheme: ColorScheme } | { hex: string };
  */
 export interface ExecutorContext {
   getStructure(): Structure | undefined;
-  loadStructure(resolved: ResolvedStructure): Promise<void>;
+  loadStructure(resolved: ResolvedStructure, signal?: AbortSignal): Promise<void>;
   highlight(loci: StructureElement.Loci): void;
   clearHighlight(): void;
   focus(loci: StructureElement.Loci, options?: FocusOptions): void;
   resetCamera(): void;
   getSceneContext(): SceneContext;
-  loadTrajectory(resolved: ResolvedTrajectory): Promise<void>;
+  loadTrajectory(resolved: ResolvedTrajectory, signal?: AbortSignal): Promise<void>;
   playTrajectory(options?: PlayTrajectoryOptions): void;
   stopTrajectory(): void;
   setFrame(index: number): void;

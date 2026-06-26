@@ -10,7 +10,7 @@ import type { ColorSpec } from './context';
 import { ExecutorError } from './errors';
 import type { ErrorCode } from './errors';
 import { defaultResolveStructure } from './resolve-structure';
-import type { LoadInput, ResolveStructure } from './resolve-structure';
+import type { LoadInput, ResolveStructure, ResolvedStructure } from './resolve-structure';
 import { defaultResolveCoordinates } from './resolve-coordinates';
 import type { ResolveCoordinates } from './resolve-coordinates';
 import type { CoordinatesInput } from './types';
@@ -26,6 +26,18 @@ export interface ExecutorOptions {
 
 /** err() with the code constrained to the shared ErrorCode union (catches typos / divergence). */
 const fail = (code: ErrorCode, message: string): CommandResult => err(code, message);
+
+/** Message for a load/mutation dropped because a newer scene-replacing load superseded it. */
+const SUPERSEDED_MSG = 'superseded by a newer scene load.';
+
+/** A stable identity key for a resolved structure source: url-based only (inline data has
+ *  no cheap stable identity, so it is never deduped). NUL-joined so a url can't forge a
+ *  collision with a different (url, format, isBinary) triple. */
+function keyOf(resolved: ResolvedStructure): string | undefined {
+  return resolved.url !== undefined
+    ? [resolved.url, resolved.format, resolved.isBinary].join('\u0000')
+    : undefined;
+}
 
 function asObject(input: unknown): Record<string, unknown> {
   if (!isPlainObject(input)) {
@@ -120,15 +132,30 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
   const resolveStructure = options.resolveStructure ?? defaultResolveStructure;
   const resolveCoordinates = options.resolveCoordinates ?? defaultResolveCoordinates;
 
-  async function execute(command: Command): Promise<CommandResult> {
+  // The url-identity of the structure currently displayed (undefined while a load is in
+  // flight, after a trajectory load, or after an inline load). A load-structure whose
+  // resolved source equals this is a no-op — the structure is already shown.
+  let lastLoadedKey: string | undefined;
+
+  async function execute(command: Command, signal?: AbortSignal): Promise<CommandResult> {
+    if (signal?.aborted) return fail('superseded', SUPERSEDED_MSG);
     try {
       switch (command.name) {
         case 'load-structure': {
           const resolved = await resolveStructure(asObject(command.input) as unknown as LoadInput);
+          if (signal?.aborted) return fail('superseded', SUPERSEDED_MSG);
           if (resolved.url === undefined && resolved.data === undefined) {
             throw new ExecutorError('internal_error', 'resolveStructure returned neither a url nor inline data.');
           }
-          await ctx.loadStructure(resolved);
+          const key = keyOf(resolved);
+          if (key !== undefined && key === lastLoadedKey) return ok(); // already displayed → no-op
+          lastLoadedKey = undefined; // committing: the scene is about to be cleared
+          await ctx.loadStructure(resolved, signal);
+          // An abort can land during the final applyPreset (the one adapter step with no
+          // checkpoint after it), so ctx.loadStructure may resolve for an already-superseded
+          // load — don't stamp the key or report ok() for a structure about to be replaced (#5).
+          if (signal?.aborted) return fail('superseded', SUPERSEDED_MSG);
+          lastLoadedKey = key;
           return ok();
         }
         case 'load-trajectory': {
@@ -147,7 +174,10 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
           if (coordinates.url === undefined && coordinates.data === undefined) {
             throw new ExecutorError('internal_error', 'resolveCoordinates returned neither a url nor bytes.');
           }
-          await ctx.loadTrajectory({ topology, coordinates });
+          if (signal?.aborted) return fail('superseded', SUPERSEDED_MSG);
+          lastLoadedKey = undefined; // a trajectory replaces the structure scene; never deduped
+          await ctx.loadTrajectory({ topology, coordinates }, signal);
+          if (signal?.aborted) return fail('superseded', SUPERSEDED_MSG); // superseded during the load (#5)
           return ok();
         }
         case 'play-trajectory': {
@@ -256,6 +286,7 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
           return fail('unknown_command', `unknown command "${command.name}".`);
       }
     } catch (e) {
+      if (signal?.aborted) return fail('superseded', SUPERSEDED_MSG);
       if (e instanceof ExecutorError) return fail(e.code, e.message);
       return fail('internal_error', e instanceof Error ? e.message : String(e));
     }
@@ -271,9 +302,25 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
   // stuck mutation (e.g. polling get-scene-context for load progress) — a hung mutation can't
   // freeze state inspection (#4).
   const readOnly = new Set<Command['name']>(['get-scene-context', 'measure-distance']);
+  // Only scene-replacing LOADS are supersedable. A newer load aborts the earlier still-pending
+  // loads (in-flight or queued), skipping the download/parse/preset work #27 targets. Non-load
+  // mutations are NOT superseded — they run in FIFO order regardless. This is what keeps a
+  // mutation dispatched just before a load that turns out to be a dedup no-op from being silently
+  // dropped: only loads supersede, and only other loads. (A mutation before a *real* load runs
+  // then gets replaced by the load — the same visible result, just a cheap extra GPU write.)
+  const sceneReplacing = new Set<Command['name']>(['load-structure', 'load-trajectory']);
   const serialize = createSerializer();
+  const pendingLoads = new Set<AbortController>();
   function dispatch(command: Command): Promise<CommandResult> {
-    return readOnly.has(command.name) ? execute(command) : serialize(() => execute(command));
+    if (readOnly.has(command.name)) return execute(command);
+    // Non-load mutations: serialized (FIFO) but never supersede nor get superseded.
+    if (!sceneReplacing.has(command.name)) return serialize(() => execute(command));
+    const controller = new AbortController();
+    for (const c of pendingLoads) c.abort(); // a newer load supersedes earlier pending loads
+    pendingLoads.add(controller);
+    return serialize(() => execute(command, controller.signal)).finally(() => {
+      pendingLoads.delete(controller);
+    });
   }
 
   return { dispatch };
