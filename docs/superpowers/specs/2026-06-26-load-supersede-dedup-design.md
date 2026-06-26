@@ -265,3 +265,37 @@ checkpoint).
 - Clear-last reorder of `loadStructure` (remove the blank-during-load flash) — a real UX
   win but it changes GPU-verified behavior; separate future item.
 - Cancelling molstar's in-flight `fetch` / interrupting `loadMolstarTrajectory` mid-call.
+
+## 10. Post-review revisions (external review, 2026-06-26)
+
+An xhigh external review surfaced three issues the original design (§3.1/§4) got wrong or
+left loose. These supersede the conflicting text above:
+
+- **Supersession is now LOADS-ONLY (resolves the headline bug).** A newly dispatched load
+  aborts only earlier still-pending **loads**, never non-load mutations. Original §4 row 5 had
+  a load supersede a queued `set-color` — but when that load turns out to be a **dedup no-op**
+  (same structure), the scene isn't replaced, so the superseded mutation was silently dropped
+  (eager-abort-at-dispatch vs late-dedup-at-execute mismatch). Fix: `dispatch` keeps a
+  `pendingLoads` set; only loads get a controller and only loads are aborted. Mutations run in
+  FIFO order regardless — a mutation before a *real* load runs then gets replaced (same visible
+  result), a mutation before a *dedup* load now correctly persists. This also moots the "the
+  four mutators don't honor the signal" finding: mutations are never aborted, so there is
+  nothing to honor. (Consequence: a mutation queued before a load is no longer reported
+  `superseded`; it runs.)
+- **Post-await abort re-check on loads.** After `await ctx.loadStructure`/`loadTrajectory` the
+  executor re-checks `signal?.aborted` before stamping `lastLoadedKey` / returning `ok()`. An
+  abort can land during the final `applyPreset` (the one adapter step with no checkpoint after
+  it), so a superseded load could otherwise resolve normally and report `ok()` (and stamp a
+  stale key) for a structure about to be replaced. Now it correctly returns `superseded`.
+- **Trajectory checkpoint moved before `clear()`.** The adapter's `loadTrajectory` abort
+  checkpoint moved from *after* `plugin.clear()` to *before* it, so a superseded trajectory load
+  leaves the prior scene intact instead of clearing then bailing — which would strand the viewer
+  blank if the superseding load also failed (violating the snapshot/restore invariant). The
+  single opaque `loadMolstarTrajectory` still can't be interrupted mid-call.
+
+**Pushed back (documented design, not defects):** catch maps `aborted -> superseded` first (when
+aborted, the load was abandoned by a newer one — `superseded` is the dominant truth);
+`resolveStructure` runs before the dedup short-circuit (§7 tradeoff; raw-input dedup rejected in
+brainstorm); dedup removes reload-as-reset (§7, intended); superseded in-flight download isn't
+cancelled (§9 out-of-scope — though the reviewer's note that FIFO makes the survivor wait for the
+discarded download is a good follow-up).

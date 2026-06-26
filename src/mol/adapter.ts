@@ -321,11 +321,15 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
       // than leaving the viewer blank. The snapshot is only ever restored on the failure
       // path, so a successful load carries no behavioural change.
       await plugin.managers.animation.stop();
+      // Check abort BEFORE clearing: a superseded trajectory load must not clear the scene and
+      // then bail, which would leave the viewer blank if the superseding load also fails. Bailing
+      // here leaves the prior scene intact for the superseder to replace. The single opaque
+      // loadMolstarTrajectory below can't be interrupted mid-call, so this is the last checkpoint.
+      signal?.throwIfAborted();
       const priorScene = plugin.state.data.getSnapshot();
       await plugin.clear();
       components.clear();
       traj = undefined;
-      signal?.throwIfAborted();                       // superseded → skip the (uninterruptible) load
       let result;
       try {
         result = await loadMolstarTrajectory(plugin, {

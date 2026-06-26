@@ -151,6 +151,10 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
           if (key !== undefined && key === lastLoadedKey) return ok(); // already displayed → no-op
           lastLoadedKey = undefined; // committing: the scene is about to be cleared
           await ctx.loadStructure(resolved, signal);
+          // An abort can land during the final applyPreset (the one adapter step with no
+          // checkpoint after it), so ctx.loadStructure may resolve for an already-superseded
+          // load — don't stamp the key or report ok() for a structure about to be replaced (#5).
+          if (signal?.aborted) return fail('superseded', SUPERSEDED_MSG);
           lastLoadedKey = key;
           return ok();
         }
@@ -173,6 +177,7 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
           if (signal?.aborted) return fail('superseded', SUPERSEDED_MSG);
           lastLoadedKey = undefined; // a trajectory replaces the structure scene; never deduped
           await ctx.loadTrajectory({ topology, coordinates }, signal);
+          if (signal?.aborted) return fail('superseded', SUPERSEDED_MSG); // superseded during the load (#5)
           return ok();
         }
         case 'play-trajectory': {
@@ -297,21 +302,24 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
   // stuck mutation (e.g. polling get-scene-context for load progress) — a hung mutation can't
   // freeze state inspection (#4).
   const readOnly = new Set<Command['name']>(['get-scene-context', 'measure-distance']);
-  // A scene-replacing load clears the scene, so when one is dispatched every earlier
-  // still-pending mutation (queued or in-flight) targets a scene about to vanish — abort
-  // them so they bail (returning `superseded`) instead of running superseded work (#27).
+  // Only scene-replacing LOADS are supersedable. A newer load aborts the earlier still-pending
+  // loads (in-flight or queued), skipping the download/parse/preset work #27 targets. Non-load
+  // mutations are NOT superseded — they run in FIFO order regardless. This is what keeps a
+  // mutation dispatched just before a load that turns out to be a dedup no-op from being silently
+  // dropped: only loads supersede, and only other loads. (A mutation before a *real* load runs
+  // then gets replaced by the load — the same visible result, just a cheap extra GPU write.)
   const sceneReplacing = new Set<Command['name']>(['load-structure', 'load-trajectory']);
   const serialize = createSerializer();
-  const pending = new Set<AbortController>();
+  const pendingLoads = new Set<AbortController>();
   function dispatch(command: Command): Promise<CommandResult> {
     if (readOnly.has(command.name)) return execute(command);
+    // Non-load mutations: serialized (FIFO) but never supersede nor get superseded.
+    if (!sceneReplacing.has(command.name)) return serialize(() => execute(command));
     const controller = new AbortController();
-    if (sceneReplacing.has(command.name)) {
-      for (const c of pending) c.abort();
-    }
-    pending.add(controller);
+    for (const c of pendingLoads) c.abort(); // a newer load supersedes earlier pending loads
+    pendingLoads.add(controller);
     return serialize(() => execute(command, controller.signal)).finally(() => {
-      pending.delete(controller);
+      pendingLoads.delete(controller);
     });
   }
 

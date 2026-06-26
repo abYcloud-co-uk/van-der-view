@@ -670,7 +670,8 @@ describe('createExecutor — supersession (#27)', () => {
     );
   });
 
-  it('supersedes a non-load mutation queued before a load', async () => {
+  it('does NOT supersede a non-load mutation queued before a load — it runs in FIFO (#1)', async () => {
+    // Only loads supersede other loads. A set-color queued before a load is NOT dropped — it runs.
     const { loadStructure, release } = gatedLoad();
     const ctx = fakeContext({ loadStructure });
     const exec = createExecutor(ctx);
@@ -680,10 +681,42 @@ describe('createExecutor — supersession (#27)', () => {
     const pLoad2 = exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1hsg' } });
     release();
     const [r1, rColor, r2] = await Promise.all([pLoad1, pColor, pLoad2]);
-    expect(errorOf(r1).code).toBe('superseded');     // in-flight load superseded by load2
-    expect(errorOf(rColor).code).toBe('superseded'); // queued set-color superseded by load2
-    expect(ctx.setColor).not.toHaveBeenCalled();
-    expect(r2.ok).toBe(true);
+    expect(errorOf(r1).code).toBe('superseded');     // load1 (a load) IS superseded by load2
+    expect(rColor.ok).toBe(true);                    // the mutation is NOT superseded — it runs
+    expect(ctx.setColor).toHaveBeenCalledTimes(1);
+    expect(r2.ok).toBe(true);                        // load2 survives
+  });
+
+  it('applies a mutation queued before a redundant same-structure load (does not drop it) (#1)', async () => {
+    // The headline regression: a mutation followed by a redundant load of the displayed structure.
+    // The load dedups to a no-op; the mutation must still be applied (not silently dropped).
+    const ctx = fakeContext();
+    const exec = createExecutor(ctx);
+    await exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1crn' } }); // 1crn displayed
+    const pColor = exec.dispatch({ name: 'set-color', input: { selection: { chain: 'A' }, color: '#ff0000' } });
+    const pLoad = exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1crn' } }); // redundant
+    const [rColor, rLoad] = await Promise.all([pColor, pLoad]);
+    expect(rColor.ok).toBe(true);
+    expect(ctx.setColor).toHaveBeenCalledTimes(1);     // applied, NOT dropped
+    expect(rLoad.ok).toBe(true);
+    expect(ctx.loadStructure).toHaveBeenCalledTimes(1); // the redundant load deduped (no 2nd ctx call)
+  });
+
+  it('reports superseded (not ok) when the abort lands after loadStructure resolves (#5)', async () => {
+    // Resolves NORMALLY after the gate (no throwIfAborted) — simulates an abort landing during the
+    // final applyPreset, the one adapter step with no checkpoint after it. The post-await re-check
+    // must still report superseded and not stamp lastLoadedKey for a structure about to be replaced.
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const loadStructure = vi.fn(async () => { await gate; });
+    const exec = createExecutor(fakeContext({ loadStructure }));
+    const pA = exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1crn' } });
+    await flush();                                   // A in-flight (in the fake, awaiting the gate)
+    const pB = exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1hsg' } }); // aborts A
+    release();
+    const [rA, rB] = await Promise.all([pA, pB]);
+    expect(errorOf(rA).code).toBe('superseded');      // post-await re-check caught the abort
+    expect(rB.ok).toBe(true);
   });
 
   it('lets get-scene-context bypass the queue during an in-flight load', async () => {
