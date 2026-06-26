@@ -245,7 +245,8 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
   return {
     getStructure,
 
-    async loadStructure(resolved: ResolvedStructure): Promise<void> {
+    async loadStructure(resolved: ResolvedStructure, signal?: AbortSignal): Promise<void> {
+      signal?.throwIfAborted();
       // Stop any running trajectory animation so it doesn't keep ticking against the cleared scene.
       await plugin.managers.animation.stop();
       traj = undefined;
@@ -254,6 +255,7 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
       // (otherwise a second load would be appended and silently ignored).
       await plugin.clear();
       components.clear();
+      signal?.throwIfAborted();                       // superseded → skip download + parse + preset
       const data =
         resolved.url !== undefined
           ? await plugin.builders.data.download(
@@ -261,7 +263,9 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
               { state: { isGhost: true } },
             )
           : await plugin.builders.data.rawData({ data: resolved.data! });
+      signal?.throwIfAborted();                       // superseded → skip parse + preset
       const trajectory = await plugin.builders.structure.parseTrajectory(data, resolved.format);
+      signal?.throwIfAborted();                       // superseded → skip preset
       await plugin.builders.structure.hierarchy.applyPreset(trajectory, 'default');
     },
 
@@ -310,7 +314,8 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
       };
     },
 
-    async loadTrajectory(resolved: ResolvedTrajectory): Promise<void> {
+    async loadTrajectory(resolved: ResolvedTrajectory, signal?: AbortSignal): Promise<void> {
+      signal?.throwIfAborted();
       // Stop any running animation, then snapshot the current scene BEFORE clearing so a
       // failed load (e.g. a topology/coordinate atom-count mismatch) can restore it rather
       // than leaving the viewer blank. The snapshot is only ever restored on the failure
@@ -320,6 +325,7 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
       await plugin.clear();
       components.clear();
       traj = undefined;
+      signal?.throwIfAborted();                       // superseded → skip the (uninterruptible) load
       let result;
       try {
         result = await loadMolstarTrajectory(plugin, {
