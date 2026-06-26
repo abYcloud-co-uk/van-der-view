@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, type CSSProperties, type HTMLAttributes } from 'react';
 import { useMolViewContext } from './provider';
+import type { HoverInfo } from '../hover';
 
 /**
  * Props for {@link MolViewCanvas}. Omits the DOM `onError` (a SyntheticEvent handler) so the
@@ -13,6 +14,10 @@ export interface MolViewCanvasProps extends Omit<HTMLAttributes<HTMLDivElement>,
    *  (`useMolView()` stays `undefined` either way). It does NOT cover per-command failures after a
    *  successful mount: those come back as an error `CommandResult` from `dispatch`. (#7) */
   onError?: (error: Error) => void;
+  /** Called on pointer hover with info about the element under the cursor, or `null` when the
+   *  pointer is over empty space — for rendering a custom tooltip on the bare canvas (#29). A
+   *  throwing callback is contained. */
+  onHover?: (info: HoverInfo | null) => void;
 }
 
 /**
@@ -23,7 +28,7 @@ export interface MolViewCanvasProps extends Omit<HTMLAttributes<HTMLDivElement>,
  * SSR-safe: molstar is reached only via a dynamic import inside useEffect, which
  * does not run during renderToString — so nothing touches WebGL/window server-side.
  */
-export function MolViewCanvas({ onError, ...props }: MolViewCanvasProps) {
+export function MolViewCanvas({ onError, onHover, ...props }: MolViewCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctx = useMolViewContext();
@@ -32,7 +37,11 @@ export function MolViewCanvas({ onError, ...props }: MolViewCanvasProps) {
   // Ref so a changing onError identity doesn't re-run the init effect (keyed on [plugin]).
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
-  const { plugin } = ctx;
+  // Ref so a changing onHover identity doesn't re-subscribe; only its presence (below) does.
+  const onHoverRef = useRef(onHover);
+  onHoverRef.current = onHover;
+  const { plugin, view } = ctx;
+  const hasOnHover = onHover != null;
 
   // Re-initialize when the host `plugin` changes — covers a host that mounts the
   // canvas first and resolves its Mol* PluginContext asynchronously, passing it on a
@@ -93,6 +102,17 @@ export function MolViewCanvas({ onError, ...props }: MolViewCanvasProps) {
       created?.dispose();
     };
   }, [plugin]);
+
+  // Subscribe to hover only when the host actually wants it. Keyed on the live `view` and on
+  // onHover's PRESENCE (read identity-stably via the ref) — so a canvas with no onHover does ZERO
+  // per-pointer-move work (no toHoverInfo mapping), yet a host that adds onHover later still wires
+  // up without re-initializing the viewer. Cleanup runs before the init effect's dispose (effects
+  // tear down in reverse order), and on a host-provided plugin (never disposed by vdv) this is the
+  // only thing that detaches the listener.
+  useEffect(() => {
+    if (!view || !hasOnHover) return;
+    return view.subscribeHover((info) => onHoverRef.current?.(info));
+  }, [view, hasOnHover]);
 
   const { style, ...rest } = props;
   const containerStyle: CSSProperties = { position: 'relative', ...style };
