@@ -100,17 +100,34 @@ cores have all landed** (`src/`):
   differ enough to leave). **Hover only** — click (`onClick`/`subscribeClick`) is a deferred follow-up (the
   extraction layer is built to be reused). Suite now **161 tests**. Spec/plan:
   `docs/superpowers/{specs,plans}/2026-06-24-hover-surface*`.
+- **Load supersede + dedup** (merged — PR #32, closes #27, 2026-06-26; demo GPU-verified). Two automatic,
+  default-on optimizations for rapid in-place structure switches, **zero new public API**: **latest-wins
+  supersession** — a newly dispatched scene-replacing load (`load-structure`/`load-trajectory`) aborts every
+  earlier still-pending **load** (loads-only — non-load mutations always run FIFO), returning a distinct
+  **`superseded`** `ErrorCode` and skipping its remaining download/parse/preset via an `AbortSignal` threaded
+  into the port and honored at the adapter's `await` checkpoints; and **dedup-on-same** — a `load-structure`
+  whose resolved url-source equals the displayed structure is a no-op `ok()` (url-keyed `keyOf`; inline never
+  dedups; `lastLoadedKey` is cleared at every load commit so the two mechanisms compose). Executor logic is
+  Node-tested; the adapter checkpoints are typecheck-gated + demo-verified. Built
+  brainstorm→spec→plan→subagent-driven (4 tasks, per-task + opus final review) then an xhigh external review
+  (8 findings: **3 fixed** — loads-only supersession resolving a silent mutation-drop when a superseding load
+  deduped, a post-await abort recheck, and moving the trajectory checkpoint before `clear()` to avoid a blank;
+  **4 pushed back** with reasoning as documented design; a subagent's NUL-byte-in-source slip was caught + fixed
+  mid-flight). Reload-same is now a no-op that does **not** reset prior styling/camera — intended for the
+  in-place `content`-prop viewer. Suite now **172 tests**. Spec/plan (incl. §10 review revisions):
+  `docs/superpowers/{specs,plans}/2026-06-26-load-supersede-dedup*`.
 
-So the v1 runtime + the trajectory cluster + packaging + the v1.1a representation cluster + the hover surface are
-complete and **fully GPU-validated including WebXR**, the library is buildable/publishable, and **v0.2.0 is
-published and in production downstream**. Next (`docs/superpowers/plans/`): **load supersede/cancel** (open issue
-#27 — a newer `load-structure` should abort a superseded in-flight one; FIFO already fixed the #23 race, this is
-the performance follow-up), a **click surface** follow-up to hover (#29 shipped hover only), **v1.1b**
+So the v1 runtime + the trajectory cluster + packaging + the v1.1a representation cluster + the hover surface +
+the load supersede/dedup cluster are complete and **fully GPU-validated including WebXR**, the library is
+buildable/publishable, and **v0.2.0 is published and in production downstream**. Next
+(`docs/superpowers/plans/`): a **click surface** follow-up to hover (#29 shipped hover only), **v1.1b**
 (`highlight.style` + `load-scene`/`toggle-xr`, plus **multi-representation components** for mixed polymer+ligand
 selections — the one deferred limitation of the v1.1a appearance model), and **trajectory follow-ups** (in-XR
-playback, palindrome/trim/multi-trajectory). A **public npm** release is the packaging follow-up (deferred to a
-stable version; GitHub Packages needs auth even for public packages). A **v0.3.0** release would bundle the hover
-surface (and #27 when done).
+playback, palindrome/trim/multi-trajectory). Deferred from #27: cancelling molstar's in-flight download (the FIFO
+serializer makes the survivor wait for a superseded load's download to finish) and raw-input dedup for I/O-heavy
+resolvers. A **public npm** release is the packaging follow-up (deferred to a stable version; GitHub Packages
+needs auth even for public packages). A **v0.3.0** release would bundle the hover surface (#29) and the load
+supersede/dedup cluster (#27).
 
 Commands:
 - `pnpm test` — run the Vitest suite (`pnpm test:watch` to watch)
