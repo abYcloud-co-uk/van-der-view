@@ -697,3 +697,61 @@ describe('createExecutor — supersession (#27)', () => {
     await pLoad;
   });
 });
+
+describe('createExecutor — dedup-on-same (#27)', () => {
+  it('dedups a reload of the currently-displayed source (no second loadStructure)', async () => {
+    const ctx = fakeContext();
+    const exec = createExecutor(ctx);
+    const r1 = await exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1crn' } });
+    const r2 = await exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1crn' } });
+    expect(r1.ok).toBe(true);
+    expect(r2.ok).toBe(true);
+    expect(ctx.loadStructure).toHaveBeenCalledTimes(1); // second was a dedup no-op
+  });
+
+  it('does not dedup when a different load came in between (key invalidated)', async () => {
+    const ctx = fakeContext();
+    const exec = createExecutor(ctx);
+    await exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1crn' } });
+    await exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1hsg' } });
+    await exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1crn' } });
+    expect(ctx.loadStructure).toHaveBeenCalledTimes(3);
+  });
+
+  it('never dedups inline-data loads (no stable url identity)', async () => {
+    const ctx = fakeContext();
+    const resolveStructure = vi.fn(async () => ({ data: 'INLINE', format: 'pdb' as const }));
+    const exec = createExecutor(ctx, { resolveStructure });
+    await exec.dispatch({ name: 'load-structure', input: { source: 'inline', data: 'INLINE', format: 'pdb' } });
+    await exec.dispatch({ name: 'load-structure', input: { source: 'inline', data: 'INLINE', format: 'pdb' } });
+    expect(ctx.loadStructure).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not dedup the load that supersedes an in-flight same-source load (scene was cleared)', async () => {
+    const { loadStructure, release } = gatedLoad();
+    const exec = createExecutor(fakeContext({ loadStructure }));
+    const pB = exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1crn' } });
+    await flush();                                    // B in-flight: it already committed (key → undefined)
+    const pA2 = exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1crn' } });
+    release();
+    const [rB, rA2] = await Promise.all([pB, pA2]);
+    expect(errorOf(rB).code).toBe('superseded');
+    expect(rA2.ok).toBe(true);
+    expect(loadStructure).toHaveBeenCalledTimes(2);   // A2 reloaded; did NOT wrongly dedup into a blank scene
+  });
+
+  it('clears the dedup key after a trajectory load (a later same-url structure reloads)', async () => {
+    const ctx = fakeContext();
+    const exec = createExecutor(ctx);
+    await exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1crn' } });
+    await exec.dispatch({
+      name: 'load-trajectory',
+      input: {
+        topology: { source: 'url', url: 'https://x/top.pdb', format: 'pdb' },
+        coordinates: { source: 'url', url: 'https://x/c.xtc', format: 'xtc' },
+      },
+    });
+    await exec.dispatch({ name: 'load-structure', input: { source: 'pdb', id: '1crn' } });
+    expect(ctx.loadStructure).toHaveBeenCalledTimes(2); // the post-trajectory 1crn is NOT deduped
+  });
+});
