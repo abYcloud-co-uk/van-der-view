@@ -12,11 +12,12 @@ describe('adapters registry', () => {
     expect(cmd).toEqual({ name: 'reset-camera', input: {} });
   });
 
-  it('throws clearly for the unimplemented openai adapter (toCommand)', () => {
-    expect(() => adapters.openai.toCommand({})).toThrow(/openai.*not implemented/i);
-  });
-
-  it('throws clearly for the unimplemented openai adapter (toTools)', () => {
-    expect(() => adapters.openai.toTools([])).toThrow(/openai.*not implemented/i);
+  it('exposes a working openai adapter (also used by DeepSeek)', () => {
+    const cmd = adapters.openai.toCommand({
+      id: 'call_1',
+      type: 'function',
+      function: { name: 'reset-camera', arguments: '{}' },
+    });
+    expect(cmd).toEqual({ name: 'reset-camera', input: {} });
   });
 });

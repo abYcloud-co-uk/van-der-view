@@ -117,6 +117,32 @@ export interface AnthropicToolUse {
   input: Record<string, unknown>;
 }
 
+// ── OpenAI-compatible wire shapes (also used by DeepSeek) ───────────────────
+// DeepSeek's API is OpenAI-compatible, so the same adapter serves both. The one
+// divergence from Anthropic: tool args arrive as a JSON *string* in
+// `function.arguments`, which the adapter must JSON.parse.
+
+/** An OpenAI-compatible tool (function) definition (the output of toTools). */
+export interface OpenAITool {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: JSONSchema;
+  };
+}
+
+/** An OpenAI-compatible tool_call (the input shape of toCommand). */
+export interface OpenAIToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    /** JSON-encoded arguments — a *string*, parsed by the adapter. */
+    arguments: string;
+  };
+}
+
 // ── Appearance (set-representation / set-color) ─────────────────────────────
 
 /**

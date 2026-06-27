@@ -1,17 +1,19 @@
-import type { AnthropicTool, ProviderAdapter } from '../types';
-import { toCommand, toTools } from './anthropic';
+import type { AnthropicTool, OpenAITool, ProviderAdapter } from '../types';
+import { toCommand as anthropicToCommand, toTools as anthropicToTools } from './anthropic';
+import { toCommand as openaiToCommand, toTools as openaiToTools } from './openai';
 
-const anthropic: ProviderAdapter<AnthropicTool> = { toTools, toCommand };
+const anthropic: ProviderAdapter<AnthropicTool> = {
+  toTools: anthropicToTools,
+  toCommand: anthropicToCommand,
+};
 
-/** A reserved adapter that throws clearly until the provider is implemented. */
-function notImplemented(provider: string): ProviderAdapter {
-  const fail = (): never => {
-    throw new Error(`van-der-view: the "${provider}" adapter is not implemented yet.`);
-  };
-  return { toTools: fail, toCommand: fail };
-}
+/** OpenAI-compatible adapter; DeepSeek uses this too (its API is OpenAI-compatible). */
+const openai: ProviderAdapter<OpenAITool> = {
+  toTools: openaiToTools,
+  toCommand: openaiToCommand,
+};
 
 export const adapters = {
   anthropic,
-  openai: notImplemented('openai'),
+  openai,
 };

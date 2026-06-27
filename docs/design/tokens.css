@@ -1,0 +1,100 @@
+/*
+ * van-der-view design tokens — "Kinetic Precision"
+ * Source of truth: Google Stitch design system (docs/design/stitch/design.md),
+ * synthesized into framework-agnostic CSS custom properties. See DESIGN_SYSTEM.md.
+ *
+ * Dark, high-contrast, developer-tool aesthetic: near-black surfaces so the 3D
+ * molecular render carries the color; neon-teal primary; biochem-purple secondary;
+ * hairline borders and tonal layering instead of shadows.
+ *
+ * Naming: --vdv-<group>-<role>. Consume these everywhere; do not hardcode hex.
+ */
+
+:root {
+  /* ── Color · surfaces (tonal layering, lowest → brightest) ───────────────── */
+  --vdv-color-bg: #0e1416;
+  --vdv-color-surface: #0e1416;
+  --vdv-color-surface-lowest: #090f11;
+  --vdv-color-surface-low: #171d1e;
+  --vdv-color-surface-container: #1b2122;
+  --vdv-color-surface-high: #252b2d;
+  --vdv-color-surface-highest: #303638;
+  --vdv-color-surface-bright: #343a3c;
+
+  /* ── Color · text/content on surfaces ───────────────────────────────────── */
+  --vdv-color-on-surface: #dee3e6;        /* primary text */
+  --vdv-color-on-surface-variant: #bcc9cd; /* muted / metadata text */
+
+  /* ── Color · borders (hairline, blueprint precision) ────────────────────── */
+  --vdv-color-outline: #869397;
+  --vdv-color-outline-variant: #3d494c;   /* default 1px card/panel border */
+
+  /* ── Color · primary (neon teal): actions, OK state, active selection ────── */
+  --vdv-color-primary: #4cd7f6;
+  --vdv-color-primary-container: #06b6d4;
+  --vdv-color-on-primary: #003640;
+  --vdv-color-on-primary-container: #00424f;
+
+  /* ── Color · secondary (biochem purple): AI/agent, insights, badges ─────── */
+  --vdv-color-secondary: #c0c1ff;
+  --vdv-color-secondary-container: #3131c0;
+  --vdv-color-on-secondary: #1000a9;
+  --vdv-color-on-secondary-container: #b0b2ff;
+
+  /* ── Color · tertiary (amber): warnings, secondary highlights ───────────── */
+  --vdv-color-tertiary: #ffb873;
+  --vdv-color-tertiary-container: #e89337;
+
+  /* ── Color · error ──────────────────────────────────────────────────────── */
+  --vdv-color-error: #ffb4ab;
+  --vdv-color-error-container: #93000a;
+  --vdv-color-on-error: #690005;
+  --vdv-color-on-error-container: #ffdad6;
+
+  /* ── Color · semantic aliases for app state (CommandResult etc.) ────────── */
+  --vdv-color-ok: var(--vdv-color-primary);      /* success = neon teal */
+  --vdv-color-danger: var(--vdv-color-error);
+  --vdv-color-agent: var(--vdv-color-secondary); /* agent / AI accents = purple */
+  --vdv-color-tint: #4cd7f6;                      /* glow / focus tint */
+
+  /* ── Typography · families (Geist UI, JetBrains Mono for code/coords) ────── */
+  --vdv-font-sans: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --vdv-font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Consolas', monospace;
+
+  /* ── Typography · scale (size / weight / line-height / tracking) ─────────── */
+  --vdv-text-display-lg: 700 48px/1.1 var(--vdv-font-sans);
+  --vdv-text-display-lg-tracking: -0.04em;
+  --vdv-text-headline-lg: 600 32px/1.2 var(--vdv-font-sans);
+  --vdv-text-headline-lg-tracking: -0.02em;
+  --vdv-text-headline-md: 600 24px/1.2 var(--vdv-font-sans);
+  --vdv-text-body-md: 400 16px/1.6 var(--vdv-font-sans);
+  --vdv-text-code-sm: 400 14px/1.5 var(--vdv-font-mono);
+  --vdv-text-label-xs: 600 12px/1 var(--vdv-font-sans);
+  --vdv-text-label-xs-tracking: 0.05em; /* uppercase eyebrow labels */
+
+  /* ── Spacing · 4px base unit (tight, IDE-like rhythm) ────────────────────── */
+  --vdv-space-unit: 4px;
+  --vdv-space-xs: 4px;
+  --vdv-space-sm: 8px;
+  --vdv-space-md: 16px;
+  --vdv-space-lg: 32px;
+  --vdv-gutter: 24px;
+  --vdv-margin-desktop: 40px;
+  --vdv-margin-mobile: 16px;
+  --vdv-container-max: 1440px;
+
+  /* ── Shape · radii (4px standard; disciplined, not playful) ──────────────── */
+  --vdv-radius-sm: 0.125rem; /* 2px */
+  --vdv-radius: 0.25rem;     /* 4px — default for buttons/inputs/cards */
+  --vdv-radius-md: 0.375rem; /* 6px */
+  --vdv-radius-lg: 0.5rem;   /* 8px — layout containers, modals */
+  --vdv-radius-xl: 0.75rem;  /* 12px — 3D viewport frame */
+  --vdv-radius-full: 9999px;
+
+  /* ── Elevation · no shadows; tonal layering + glass + luminous glow ──────── */
+  --vdv-border-hairline: 1px solid var(--vdv-color-outline-variant);
+  --vdv-glass-bg: rgba(14, 20, 22, 0.72);
+  --vdv-glass-blur: 20px;
+  --vdv-glow-primary: 0 0 0 2px rgba(76, 215, 246, 0.35);   /* focus ring */
+  --vdv-glow-soft: 0 0 16px rgba(76, 215, 246, 0.25);       /* live/active glow */
+}

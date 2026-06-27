@@ -11,6 +11,11 @@ describe('public surface', () => {
     expect(tools.anthropic.every((t) => 'input_schema' in t)).toBe(true);
   });
 
+  it('exposes ready-made openai tools, one per command', () => {
+    expect(tools.openai).toHaveLength(commands.length);
+    expect(tools.openai.every((t) => t.type === 'function' && 'parameters' in t.function)).toBe(true);
+  });
+
   it('exposes the adapters registry', () => {
     expect(typeof adapters.anthropic.toCommand).toBe('function');
   });
