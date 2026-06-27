@@ -1,0 +1,202 @@
+/*
+ * Demo theme — applies the van-der-view "Kinetic Precision" design system.
+ * Tokens come from docs/design/tokens.css (imported first, in main.tsx).
+ * This file: web fonts + base element styling (so existing panels inherit the
+ * dark theme automatically) + the shell / panel / agent component classes.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--vdv-color-bg);
+  color: var(--vdv-color-on-surface);
+  font: var(--vdv-text-body-md);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Make every raw control in the existing panels inherit the theme. */
+button {
+  font: var(--vdv-text-label-xs);
+  letter-spacing: 0.02em;
+  color: var(--vdv-color-on-surface);
+  background: var(--vdv-color-surface-high);
+  border: var(--vdv-border-hairline);
+  border-radius: var(--vdv-radius);
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+button:hover:not(:disabled) { border-color: var(--vdv-color-primary); color: var(--vdv-color-primary); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+input, textarea, select {
+  font-family: var(--vdv-font-sans);
+  font-size: 13px;
+  color: var(--vdv-color-on-surface);
+  background: var(--vdv-color-surface-lowest);
+  border: var(--vdv-border-hairline);
+  border-radius: var(--vdv-radius);
+  padding: 6px 8px;
+}
+textarea { font-family: var(--vdv-font-mono); font-size: 12px; }
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--vdv-color-primary);
+  box-shadow: var(--vdv-glow-primary);
+}
+
+pre, code { font-family: var(--vdv-font-mono); }
+
+a { color: var(--vdv-color-primary); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--vdv-color-surface-high); border-radius: var(--vdv-radius-full); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ── App shell ────────────────────────────────────────────────────────────── */
+.vdv-app { display: flex; height: 100vh; font-family: var(--vdv-font-sans); }
+
+.vdv-canvas { flex: 1; position: relative; min-width: 0; }
+
+.vdv-rail {
+  width: 420px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: var(--vdv-space-md);
+  background: var(--vdv-color-surface-low);
+  border-left: var(--vdv-border-hairline);
+}
+
+.vdv-rail__brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--vdv-space-sm);
+  margin: 0 0 var(--vdv-space-md);
+}
+.vdv-rail__brand h1 {
+  margin: 0;
+  font: var(--vdv-text-headline-md);
+  letter-spacing: var(--vdv-text-headline-lg-tracking);
+}
+.vdv-rail__brand .vdv-accent { color: var(--vdv-color-primary); }
+.vdv-rail__brand .vdv-tag {
+  font: var(--vdv-text-label-xs);
+  letter-spacing: var(--vdv-text-label-xs-tracking);
+  text-transform: uppercase;
+  color: var(--vdv-color-on-surface-variant);
+}
+
+/* ── Panel / section ──────────────────────────────────────────────────────── */
+.vdv-panel {
+  border: var(--vdv-border-hairline);
+  border-radius: var(--vdv-radius-lg);
+  background: var(--vdv-color-surface-container);
+  padding: var(--vdv-space-md);
+  margin-bottom: var(--vdv-space-md);
+}
+.vdv-panel__title {
+  margin: 0 0 var(--vdv-space-sm);
+  font: var(--vdv-text-label-xs);
+  letter-spacing: var(--vdv-text-label-xs-tracking);
+  text-transform: uppercase;
+  color: var(--vdv-color-on-surface-variant);
+}
+
+/* CommandResult readout */
+.vdv-result { margin: var(--vdv-space-sm) 0 0; font: var(--vdv-text-code-sm); white-space: pre-wrap; word-break: break-word; }
+.vdv-result--ok { color: var(--vdv-color-ok); }
+.vdv-result--err { color: var(--vdv-color-error); }
+
+/* ── Dev-tools drawer (native <details>) ──────────────────────────────────── */
+.vdv-drawer { margin-top: var(--vdv-space-sm); }
+.vdv-drawer > summary {
+  cursor: pointer;
+  list-style: none;
+  font: var(--vdv-text-label-xs);
+  letter-spacing: var(--vdv-text-label-xs-tracking);
+  text-transform: uppercase;
+  color: var(--vdv-color-on-surface-variant);
+  padding: var(--vdv-space-sm) 0;
+  border-top: var(--vdv-border-hairline);
+}
+.vdv-drawer > summary::-webkit-details-marker { display: none; }
+.vdv-drawer > summary::before { content: '▸ '; color: var(--vdv-color-primary); }
+.vdv-drawer[open] > summary::before { content: '▾ '; }
+
+/* ── Hover tooltip (glassmorphic) ─────────────────────────────────────────── */
+.vdv-tooltip {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10;
+  max-width: 320px;
+  padding: var(--vdv-space-xs) var(--vdv-space-sm);
+  font-size: 12px;
+  border: var(--vdv-border-hairline);
+  border-radius: var(--vdv-radius);
+  background: var(--vdv-glass-bg);
+  backdrop-filter: blur(var(--vdv-glass-blur));
+  -webkit-backdrop-filter: blur(var(--vdv-glass-blur));
+}
+.vdv-tooltip__meta { color: var(--vdv-color-primary); margin-top: 2px; }
+
+/* ── Agent chat ───────────────────────────────────────────────────────────── */
+.vdv-chat__log {
+  height: 280px;
+  overflow-y: auto;
+  border: var(--vdv-border-hairline);
+  border-radius: var(--vdv-radius);
+  padding: var(--vdv-space-sm);
+  background: var(--vdv-color-surface-lowest);
+  margin-bottom: var(--vdv-space-sm);
+}
+.vdv-chat__hint { color: var(--vdv-color-on-surface-variant); font-size: 12px; }
+
+.vdv-msg { margin: var(--vdv-space-sm) 0; }
+.vdv-msg__eyebrow {
+  font: var(--vdv-text-label-xs);
+  letter-spacing: var(--vdv-text-label-xs-tracking);
+  text-transform: uppercase;
+}
+.vdv-msg__body { white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.5; }
+.vdv-msg--user .vdv-msg__eyebrow { color: var(--vdv-color-on-surface-variant); }
+.vdv-msg--user .vdv-msg__body { color: var(--vdv-color-on-surface); }
+.vdv-msg--agent .vdv-msg__eyebrow { color: var(--vdv-color-agent); }
+.vdv-msg--agent .vdv-msg__body { color: var(--vdv-color-on-surface); }
+.vdv-msg--error .vdv-msg__eyebrow,
+.vdv-msg--error .vdv-msg__body { color: var(--vdv-color-error); }
+
+/* tool-call chip — the agent's visible "action receipt" */
+.vdv-toolchip {
+  font: var(--vdv-text-code-sm);
+  margin: var(--vdv-space-xs) 0;
+  padding: var(--vdv-space-xs) var(--vdv-space-sm);
+  border-radius: var(--vdv-radius);
+  border: 1px solid var(--vdv-color-outline-variant);
+  background: var(--vdv-color-surface-container);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.vdv-toolchip--ok { border-color: rgba(76, 215, 246, 0.4); }
+.vdv-toolchip--err { border-color: var(--vdv-color-error); }
+.vdv-toolchip__name { color: var(--vdv-color-primary); }
+.vdv-toolchip__args { color: var(--vdv-color-on-surface-variant); }
+.vdv-toolchip__ok { color: var(--vdv-color-ok); }
+.vdv-toolchip__err { color: var(--vdv-color-error); }
+
+.vdv-chat__busy { color: var(--vdv-color-primary); font-size: 12px; margin-top: var(--vdv-space-xs); }
+
+.vdv-chat__form { display: flex; gap: var(--vdv-space-xs); }
+.vdv-chat__form input { flex: 1; }
+
+.vdv-btn { font: var(--vdv-text-label-xs); letter-spacing: 0.02em; border-radius: var(--vdv-radius); padding: 0 12px; cursor: pointer; transition: border-color 120ms ease, color 120ms ease; }
+.vdv-btn--primary { color: var(--vdv-color-on-primary); background: var(--vdv-color-primary); border: 1px solid var(--vdv-color-primary); }
+.vdv-btn--primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.vdv-btn--ghost { color: var(--vdv-color-on-surface); background: transparent; border: var(--vdv-border-hairline); }
+
+.vdv-mic { color: var(--vdv-color-primary); background: var(--vdv-color-surface-high); border: var(--vdv-border-hairline); border-radius: var(--vdv-radius); padding: 0 10px; cursor: pointer; }
+.vdv-mic--on { color: var(--vdv-color-error); border-color: var(--vdv-color-error); box-shadow: var(--vdv-glow-soft); }
