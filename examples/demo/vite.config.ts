@@ -14,9 +14,13 @@ function deepseekProxy(apiKey: string, baseUrl: string, defaultModel: string): P
     configureServer(server) {
       server.middlewares.use('/api/chat', (req, res, next) => {
         if (req.method !== 'POST') return next();
-        let body = '';
-        req.on('data', (chunk) => {
-          body += chunk;
+        // Collect raw Buffers and decode once at the end. `body += chunk` would
+        // coerce each chunk via toString() independently, so a multi-byte UTF-8
+        // character split across a chunk boundary (accented names, "ångström", CJK,
+        // emoji) would corrupt into U+FFFD and silently change the model's input.
+        const chunks: Buffer[] = [];
+        req.on('data', (chunk: Buffer) => {
+          chunks.push(chunk);
         });
         req.on('end', async () => {
           const json = (status: number, payload: unknown) => {
@@ -31,6 +35,7 @@ function deepseekProxy(apiKey: string, baseUrl: string, defaultModel: string): P
             return;
           }
           try {
+            const body = Buffer.concat(chunks).toString('utf8');
             const payload = JSON.parse(body || '{}');
             const upstream = await fetch(`${baseUrl}/chat/completions`, {
               method: 'POST',

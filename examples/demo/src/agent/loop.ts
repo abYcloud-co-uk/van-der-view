@@ -46,6 +46,38 @@ export type AgentEvent =
 /** Safety cap on tool-calling rounds within a single user turn. */
 const MAX_STEPS = 8;
 
+/**
+ * Conservative cap on how much prior conversation we resend per request. Tool
+ * results (esp. get-scene-context) are stored verbatim and re-uploaded on every
+ * chat() call and every later turn, so without a cap a long session grows
+ * unbounded until the model's context window overruns. ~48k chars leaves ample
+ * headroom under DeepSeek's window.
+ */
+const HISTORY_BUDGET_CHARS = 48_000;
+
+/**
+ * Trim the oldest history to stay under the budget WITHOUT ever splitting an
+ * assistant `tool_calls` message from its `tool` replies: drop whole
+ * user-delimited rounds, always keeping the system message (index 0) and the
+ * most recent round intact.
+ */
+function prunedHistory(messages: WireMessage[]): WireMessage[] {
+  const size = (msgs: WireMessage[]): number => JSON.stringify(msgs).length;
+  if (messages.length === 0 || size(messages) <= HISTORY_BUDGET_CHARS) return messages;
+  const [system, ...rest] = messages;
+  // Index in `rest` where each round begins (a user message starts a new round).
+  const roundStarts = rest.flatMap((m, i) => (m.role === 'user' ? [i] : []));
+  // Drop oldest rounds until under budget or only the most recent round remains.
+  for (let r = 0; r < roundStarts.length - 1; r++) {
+    const kept = [system, ...rest.slice(roundStarts[r + 1])];
+    if (size(kept) <= HISTORY_BUDGET_CHARS) return kept;
+  }
+  // Even system + the last round alone exceeds the budget — keep them anyway; a
+  // valid sequence beats a truncated one, and the model (not us) handles overflow.
+  const lastStart = roundStarts.length > 0 ? roundStarts[roundStarts.length - 1] : 0;
+  return [system, ...rest.slice(lastStart)];
+}
+
 async function chat(messages: WireMessage[]): Promise<WireMessage> {
   const res = await fetch('/api/chat', {
     method: 'POST',
@@ -73,10 +105,21 @@ export async function runAgentTurn(
   userText: string,
   onEvent: (event: AgentEvent) => void,
 ): Promise<WireMessage[]> {
-  const messages: WireMessage[] = [...history, { role: 'user', content: userText }];
+  let messages: WireMessage[] = [...history, { role: 'user', content: userText }];
 
   for (let step = 0; step < MAX_STEPS; step++) {
-    const assistant = await chat(messages);
+    messages = prunedHistory(messages);
+    let assistant: WireMessage;
+    try {
+      assistant = await chat(messages);
+    } catch (e) {
+      // A failed request mid-turn must NOT lose the turn: return the messages
+      // accumulated so far (the user message + any completed tool exchanges, always
+      // a valid sequence here) so the caller persists them and the model's history
+      // stays consistent with what the UI already showed.
+      onEvent({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+      return messages;
+    }
     messages.push(assistant);
     if (assistant.content) onEvent({ kind: 'assistant', text: assistant.content });
 
