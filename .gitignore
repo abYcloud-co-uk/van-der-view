@@ -2,3 +2,12 @@ node_modules/
 dist/
 MD_Data
 .DS_Store
+
+# Local secrets / env (never commit real keys)
+.env
+.env.*
+!.env.example
+
+# npm artifacts (repo uses pnpm) and local registry auth (.npmrc carries a token)
+package-lock.json
+examples/demo/.npmrc

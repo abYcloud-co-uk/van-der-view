@@ -72,8 +72,9 @@ UI is yours.**
 Two halves, decoupled by a single normalized `Command { name, input }`:
 
 - **Agent-side** (environment-neutral): canonical command specs + thin
-  **per-provider adapters** (`toTools` outbound, `toCommand` inbound). v1 ships the
-  **Anthropic** adapter; an OpenAI/Codex adapter is a reserved placeholder.
+  **per-provider adapters** (`toTools` outbound, `toCommand` inbound). Ships an
+  **Anthropic** adapter and an **OpenAI-compatible** adapter (which also drives
+  **DeepSeek** — see the [agent demo](examples/demo/README.md)).
 - **Browser-side**: a `<MolViewProvider>` / `useMolView()` mount + a
   **provider-agnostic executor** that understands only `Command` and drives Mol\*.
 
@@ -87,6 +88,7 @@ XR uses `canvas3d.xr`.
 // agent-side
 vdv.commands                 // canonical command specs
 vdv.tools.anthropic          // ready-made Anthropic tool definitions
+vdv.tools.openai             // ready-made OpenAI-compatible tool definitions (DeepSeek too)
 
 // browser-side
 <MolViewProvider> / <MolViewCanvas> / useMolView()   // mount
@@ -106,8 +108,10 @@ viewer.plugin                                        // raw Mol* escape hatch
 
 - **Automated (Node, CI):** adapter conversion, `selection → loci` resolution, and
   an SSR-safety smoke. Runner: Vitest.
-- **Manual:** a tiny Vite demo app (no LLM, no chat) — preset buttons, a
-  paste-`tool_use` box, and an XR smoke checklist — for eyeballing real rendering.
+- **Manual:** a Vite demo app at [`examples/demo`](examples/demo/README.md) — a
+  full **conversational agent** (text + voice, via DeepSeek) plus developer panels
+  (preset buttons, a paste-`tool_use` box, an XR smoke checklist) for eyeballing
+  real rendering. See its [README](examples/demo/README.md) to add your API key and run.
 
 ## Knowledge base
 
