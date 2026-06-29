@@ -28,8 +28,9 @@ Early implementation — the **agent-side, browser-side executor, and browser ru
 cores have all landed** (`src/`):
 
 - **Agent-side** (Plan 1, merged): the command schema types, the v1 command catalog
-  (`commands`), and the Anthropic adapter (`tools.anthropic`, `adapters`). Exposed via
-  the molstar-free public barrel `src/index.ts`.
+  (`commands`), and the Anthropic + OpenAI-compatible adapters (`tools.anthropic` /
+  `tools.openai`, `adapters`; the OpenAI adapter also serves DeepSeek — see PR #35 below).
+  Exposed via the molstar-free public barrel `src/index.ts`.
 - **Browser-side executor** (Plan 2, merged): `selection` (Selection → Mol\* loci,
   auth/label), `resolve-structure` (data sourcing), the `ExecutorContext` port
   (`context`), and `createExecutor().dispatch()` (`executor`). Depends on `molstar`;
@@ -116,18 +117,30 @@ cores have all landed** (`src/`):
   mid-flight). Reload-same is now a no-op that does **not** reset prior styling/camera — intended for the
   in-place `content`-prop viewer. Suite now **172 tests**. Spec/plan (incl. §10 review revisions):
   `docs/superpowers/{specs,plans}/2026-06-26-load-supersede-dedup*`.
+- **v0.3.0 release** (merged + published to GitHub Packages 2026-06-26) — bundled the hover surface (#29) and the
+  load supersede/dedup cluster (#27) on top of v0.2.0; one new error code (`superseded`), no breaking changes.
+- **Conversational DeepSeek agent + OpenAI adapter** (PR #35, merged 2026-06-28; **post-v0.3.0, currently
+  unreleased**; demo GPU-verified). Core: the reserved `notImplemented('openai')` stub is now a real
+  **OpenAI-compatible adapter** `src/adapters/openai.ts` (DeepSeek's API is OpenAI-compatible, so the one adapter
+  serves both; the divergence is that inbound `function.arguments` is a JSON *string* the adapter `JSON.parse`s),
+  wired as `adapters.openai` + public `tools.openai`, with `OpenAITool`/`OpenAIToolCall` types and the dist-smoke
+  gate extended. No new runtime dependency. Demo: a conversational DeepSeek `AgentPanel` + agent loop routing
+  tool_calls through `adapters.openai.toCommand`→`view.dispatch` (key handled server-side in the Vite dev proxy
+  `POST /api/chat`, never in the browser bundle), plus a "Kinetic Precision" UI redesign. Suite now **186 tests**.
+  An xhigh review found no library defects; its demo/doc follow-ups (chat-failure turn-loss, unbounded history,
+  proxy UTF-8 + base-URL) are tracked in `fix/pr-35-followups`.
 
 So the v1 runtime + the trajectory cluster + packaging + the v1.1a representation cluster + the hover surface +
 the load supersede/dedup cluster are complete and **fully GPU-validated including WebXR**, the library is
-buildable/publishable, and **v0.2.0 is published and in production downstream**. Next
+buildable/publishable, and **v0.3.0 is published** (v0.2.0 verified in production downstream; the OpenAI/DeepSeek
+adapter from PR #35 is merged but not yet released). Next
 (`docs/superpowers/plans/`): a **click surface** follow-up to hover (#29 shipped hover only), **v1.1b**
 (`highlight.style` + `load-scene`/`toggle-xr`, plus **multi-representation components** for mixed polymer+ligand
 selections — the one deferred limitation of the v1.1a appearance model), and **trajectory follow-ups** (in-XR
 playback, palindrome/trim/multi-trajectory). Deferred from #27: cancelling molstar's in-flight download (the FIFO
 serializer makes the survivor wait for a superseded load's download to finish) and raw-input dedup for I/O-heavy
 resolvers. A **public npm** release is the packaging follow-up (deferred to a stable version; GitHub Packages
-needs auth even for public packages). A **v0.3.0** release would bundle the hover surface (#29) and the load
-supersede/dedup cluster (#27).
+needs auth even for public packages). A **v0.4.0** release would bundle the OpenAI/DeepSeek adapter (#35).
 
 Commands:
 - `pnpm test` — run the Vitest suite (`pnpm test:watch` to watch)
