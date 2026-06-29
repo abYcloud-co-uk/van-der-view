@@ -4,7 +4,7 @@ slug: agent-command-flow
 type: how-to
 status: stable
 sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md]
-updated: 2026-06-23
+updated: 2026-06-29
 links: [command-schema, molstar-api, headless-react, project-overview, molstar-trajectories]
 ---
 
@@ -64,9 +64,11 @@ interface ProviderAdapter {
   ⚠️ OpenAI/Codex: `{ function:{ name, arguments:'<JSON string>' } }` → `arguments`
   must be `JSON.parse`d; that quirk lives in the OpenAI adapter (src: raw/0003).
 
-**v1 = Anthropic adapter only.** OpenAI/Codex is a reserved placeholder
-(`notImplemented('openai')` that throws clearly). Filling it in touches neither the
-executor nor the command specs (src: raw/0003).
+**Anthropic + OpenAI adapters.** The OpenAI-compatible adapter — which also serves
+**DeepSeek** (its API is OpenAI-compatible) — is implemented in
+`src/adapters/openai.ts` (PR #35); `vdv.tools.openai` and `adapters.openai` mirror
+the Anthropic pair. Adding it touched neither the executor nor the command specs
+(src: raw/0003, src/adapters/openai.ts).
 
 ## The executor (implemented — Plan 2, src: raw/0008)
 

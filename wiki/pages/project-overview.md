@@ -4,7 +4,7 @@ slug: project-overview
 type: decision
 status: stable
 sources: [raw/0003-design-decisions-2026-06-18.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0011-plan3b-demo-merged-verified-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md, raw/0013-packaging-merged-2026-06-23.md, "user brief 2026-06-18"]
-updated: 2026-06-23
+updated: 2026-06-29
 links: [command-schema, agent-command-flow, molstar-api, molviewspec, molstar-webxr, headless-react, testing-strategy, molstar-trajectories, packaging]
 ---
 
@@ -51,8 +51,9 @@ live changes in a complex Web 3D molecular view.
   `molstar` (not wrapping `pdbe-molstar`).
 - **WebXR:** native to Mol\* (`canvas3d.xr`); `toggle-xr` is a v1.1 command. See [[molstar-webxr]].
 - **Command transport:** structured **tool-calling**; agent targets our schema, not
-  raw Mol\*. Executor is provider-agnostic; adapters are per-provider (v1 = Anthropic,
-  OpenAI/Codex placeholder). See [[agent-command-flow]] and [[command-schema]].
+  raw Mol\*. Executor is provider-agnostic; adapters are per-provider (**Anthropic**
+  + an **OpenAI-compatible** adapter that also serves **DeepSeek**, PR #35). See
+  [[agent-command-flow]] and [[command-schema]].
 - **v1 commands:** load-structure, highlight, focus, get-scene-context, reset-camera.
 - **Build status (src: raw/0008, raw/0009, raw/0011, raw/0012, raw/0013):** the **agent-side core**
   (schema + Anthropic adapter, Plan 1), the **browser-side executor core** (`createExecutor().dispatch()`

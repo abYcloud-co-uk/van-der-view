@@ -43,9 +43,13 @@ DEEPSEEK_API_KEY=sk-your-deepseek-key-here
 The proxy defaults to DeepSeek. To point it elsewhere (e.g. OpenAI), add to `.env`:
 
 ```
-DEEPSEEK_BASE_URL=https://api.openai.com    # default: https://api.deepseek.com
-DEEPSEEK_MODEL=gpt-4o-mini                  # default: deepseek-chat
+DEEPSEEK_BASE_URL=https://api.openai.com/v1   # default: https://api.deepseek.com
+DEEPSEEK_MODEL=gpt-4o-mini                    # default: deepseek-chat
 ```
+
+`DEEPSEEK_BASE_URL` is the prefix the proxy appends `/chat/completions` to — so
+include any version segment: OpenAI mounts under `/v1` (hence `…openai.com/v1`),
+while DeepSeek serves at the root (`…deepseek.com`, no `/v1`).
 
 ## 4. Install and run
 
