@@ -101,8 +101,10 @@ const { dispatch } = createExecutor(ctx, { resolveStructure, resolveCoordinates 
   against a fake port + real fixture `Structure`s — see [[testing-strategy]].
 
 The concrete Mol\* calls the **adapter** wires behind the port — implemented in Plan 3a as
-`molstarExecutorContext(plugin)` (all real APIs in [[molstar-api]]): `highlight` →
-`setStructureOverpaint` (persistent overpaint, replace semantics; fix #38 — was `interactivity.lociHighlights.highlightOnly`), `clearHighlight` → `clearStructureOverpaint`, `focus` →
+`molstarExecutorContext(plugin)` (all real APIs in [[molstar-api]]). `highlight` →
+`setStructureOverpaint` and `clearHighlight` → `clearStructureOverpaint`: a persistent overpaint
+layer with replace semantics (fix #38; was the transient `interactivity.lociHighlights.highlightOnly`).
+The rest: `focus` →
 `managers.camera.focusLoci(loci, { durationMs, extraRadius })`, `load-structure` →
 `plugin.clear()` + `builders.data.*` + `parseTrajectory` + preset, `reset-camera` →
 `managers.camera.reset()`, `getSceneContext` from the hierarchy (chains memoized per
