@@ -12,6 +12,7 @@ import { Color } from 'molstar/lib/mol-util/color';
 import { OrderedSet, SortedArray } from 'molstar/lib/mol-data/int';
 import { setSubtreeVisibility } from 'molstar/lib/mol-plugin/behavior/static/state';
 import { setStructureTransparency } from 'molstar/lib/mol-plugin-state/helpers/structure-transparency';
+import { setStructureOverpaint, clearStructureOverpaint } from 'molstar/lib/mol-plugin-state/helpers/structure-overpaint';
 import type { StateObjectSelector } from 'molstar/lib/mol-state';
 import { ExecutorError } from '../errors';
 import { createSerializer } from '../util';
@@ -58,6 +59,10 @@ const SCHEME_TO_THEME: Record<ColorScheme, string> = {
   hydrophobicity: 'hydrophobicity',
   'sequence-id': 'sequence-id',
 };
+
+/** Persistent highlight color — yellow, deliberately distinct from Mol*'s pink hover marker
+ *  (rgb 255,102,153) so a sticky highlight reads differently from a transient hover. */
+const HIGHLIGHT_COLOR = Color(0xffff00);
 
 /** A stable, collision-free cache key for a loci: each unit id plus its full element
  *  index list. Full-identity (not bounds+size) so two *different* same-cardinality
@@ -270,11 +275,22 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
     },
 
     highlight(loci) {
-      plugin.managers.interactivity.lociHighlights.highlightOnly({ loci });
+      return serialize(async () => {
+        // Overpaint is highlight-exclusive in this adapter (set-color colors the vdv
+        // component's representation; preset-hiding uses the transparency node), so a
+        // wholesale clear IS the replace step — no last-loci tracking needed. Target the
+        // full component list (preset + vdv) so a highlight also shows over a selection
+        // that set-color previously recolored. Overpaint colors *existing* geometry only,
+        // so atoms no representation draws won't show the highlight (documented limitation).
+        await clearStructureOverpaint(plugin, presetComponents());
+        await setStructureOverpaint(plugin, presetComponents(), HIGHLIGHT_COLOR, async () => loci);
+      });
     },
 
     clearHighlight() {
-      plugin.managers.interactivity.lociHighlights.clearHighlights();
+      return serialize(async () => {
+        await clearStructureOverpaint(plugin, presetComponents());
+      });
     },
 
     focus(loci, options?: FocusOptions) {

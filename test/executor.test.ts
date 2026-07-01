@@ -16,8 +16,8 @@ function fakeContext(overrides: Partial<ExecutorContext> = {}) {
   const ctx: ExecutorContext = {
     getStructure: () => structure,
     loadStructure: vi.fn(async () => {}),
-    highlight: vi.fn((_loci: SE.Loci) => {}),
-    clearHighlight: vi.fn(),
+    highlight: vi.fn(async (_loci: SE.Loci) => {}),
+    clearHighlight: vi.fn(async () => {}),
     focus: vi.fn((_loci: SE.Loci) => {}),
     resetCamera: vi.fn(),
     getSceneContext: () => scene,

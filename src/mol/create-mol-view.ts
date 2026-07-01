@@ -26,7 +26,7 @@ export interface CreateMolViewOptions {
 export interface MolView {
   dispatch(command: Command): Promise<CommandResult>;
   getSceneContext(): SceneContext;
-  clearHighlight(): void;
+  clearHighlight(): Promise<void>;
   /**
    * Subscribe to pointer-hover changes for a host tooltip. The callback gets a `HoverInfo`
    * for whatever is under the cursor, or `null` when the pointer leaves a target. Returns an
