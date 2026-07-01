@@ -7,6 +7,7 @@ describe('VDV_COMMANDS', () => {
     const names = VDV_COMMANDS.map((c) => c.name).sort();
     expect(names).toEqual([
       'add-label',
+      'clear-highlight',
       'focus',
       'get-scene-context',
       'highlight',
@@ -41,6 +42,13 @@ describe('VDV_COMMANDS', () => {
       const cmd = VDV_COMMANDS.find((c) => c.name === name);
       expect(cmd?.inputSchema.required).toContain('selection');
     }
+  });
+
+  it('includes clear-highlight with an empty input schema', () => {
+    const cmd = VDV_COMMANDS.find((c) => c.name === 'clear-highlight');
+    expect(cmd).toBeDefined();
+    expect(cmd?.inputSchema.properties).toEqual({});
+    expect(cmd?.inputSchema.required).toBeUndefined();
   });
 
   it('freezes the catalog and its shared schemas against mutation', () => {

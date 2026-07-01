@@ -40,8 +40,8 @@ export type ColorSpec = { scheme: ColorScheme } | { hex: string };
 export interface ExecutorContext {
   getStructure(): Structure | undefined;
   loadStructure(resolved: ResolvedStructure, signal?: AbortSignal): Promise<void>;
-  highlight(loci: StructureElement.Loci): void;
-  clearHighlight(): void;
+  highlight(loci: StructureElement.Loci): Promise<void>;
+  clearHighlight(): Promise<void>;
   focus(loci: StructureElement.Loci, options?: FocusOptions): void;
   resetCamera(): void;
   getSceneContext(): SceneContext;

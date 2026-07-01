@@ -16,8 +16,8 @@ function fakeContext(overrides: Partial<ExecutorContext> = {}) {
   const ctx: ExecutorContext = {
     getStructure: () => structure,
     loadStructure: vi.fn(async () => {}),
-    highlight: vi.fn((_loci: SE.Loci) => {}),
-    clearHighlight: vi.fn(),
+    highlight: vi.fn(async (_loci: SE.Loci) => {}),
+    clearHighlight: vi.fn(async () => {}),
     focus: vi.fn((_loci: SE.Loci) => {}),
     resetCamera: vi.fn(),
     getSceneContext: () => scene,
@@ -94,6 +94,20 @@ describe('createExecutor — highlight/focus', () => {
     expect(ctx.highlight).toHaveBeenCalledOnce();
     const loci = (ctx.highlight as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(StructureElement.Loci.size(loci)).toBe(8); // chain A
+  });
+
+  it('clears the highlight via the port for clear-highlight', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({ name: 'clear-highlight', input: {} });
+    expect(res.ok).toBe(true);
+    expect(ctx.clearHighlight).toHaveBeenCalledOnce();
+  });
+
+  it('clear-highlight needs no structure or selection', async () => {
+    const ctx = fakeContext({ getStructure: () => undefined });
+    const res = await createExecutor(ctx).dispatch({ name: 'clear-highlight', input: {} });
+    expect(res.ok).toBe(true);
+    expect(ctx.clearHighlight).toHaveBeenCalledOnce();
   });
 
   it('focuses a resolved selection, passing durationMs through', async () => {

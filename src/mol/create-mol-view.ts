@@ -26,7 +26,7 @@ export interface CreateMolViewOptions {
 export interface MolView {
   dispatch(command: Command): Promise<CommandResult>;
   getSceneContext(): SceneContext;
-  clearHighlight(): void;
+  clearHighlight(): Promise<void>;
   /**
    * Subscribe to pointer-hover changes for a host tooltip. The callback gets a `HoverInfo`
    * for whatever is under the cursor, or `null` when the pointer leaves a target. Returns an
@@ -78,7 +78,10 @@ export async function createMolView(opts: CreateMolViewOptions): Promise<MolView
   return {
     dispatch,
     getSceneContext: () => ctx.getSceneContext(),
-    clearHighlight: () => ctx.clearHighlight(),
+    // Route through dispatch (not ctx.clearHighlight directly) so the handle's clear is serialized in
+    // the executor's FIFO with queued mutations — otherwise a handle clear could run BEFORE a still-
+    // queued highlight and be silently undone when that highlight later commits (external review #1).
+    clearHighlight: () => dispatch({ name: 'clear-highlight', input: {} }).then(() => undefined),
     subscribeHover: (cb) => subscribeHoverEvents(bound.behaviors.interaction.hover, cb),
     xr,
     plugin: bound,

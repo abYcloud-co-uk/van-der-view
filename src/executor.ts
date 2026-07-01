@@ -227,7 +227,11 @@ export function createExecutor(ctx: ExecutorContext, options: ExecutorOptions = 
         case 'highlight': {
           const loci = lociFor(ctx, requireSelection(asObject(command.input)));
           if (StructureElement.Loci.isEmpty(loci)) return fail('empty_selection', 'selection matched no atoms.');
-          ctx.highlight(loci);
+          await ctx.highlight(loci);
+          return ok();
+        }
+        case 'clear-highlight': {
+          await ctx.clearHighlight();
           return ok();
         }
         case 'focus': {

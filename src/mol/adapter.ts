@@ -269,12 +269,24 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
       await plugin.builders.structure.hierarchy.applyPreset(trajectory, 'default');
     },
 
-    highlight(loci) {
-      plugin.managers.interactivity.lociHighlights.highlightOnly({ loci });
+    async highlight(loci) {
+      // Persistent highlight via Mol*'s SELECT marking channel (lociSelects) — NOT the transient
+      // hover channel (lociHighlights) that any pointer move overwrites (the #38 bug), and NOT an
+      // overpaint recolor. selectOnly renders Mol*'s native highlight look (a ~30% color tint +
+      // the marking-pass edge outline) and is persistent: it survives hover, and because the
+      // selection lives in structure.selection (not on a representation node), it survives
+      // set-color/set-representation rebuilds too. selectOnly replaces the prior selection →
+      // replace semantics for free. applyGranularity=false keeps exactly the resolved loci.
+      // Fully persistent: Mol*'s click bindings (incl. clickDeselectAllOnEmpty) are gated behind
+      // ctx.selectionMode (default false), so clicking empty canvas does NOT clear it (raw/0017).
+      // LIMITATION: this OWNS Mol*'s shared select channel — highlight replaces, and clearHighlight
+      // clears, the WHOLE selection. A host that independently uses Mol* selection (or enables
+      // selectionMode for user click-select) will see its selection replaced/cleared by these.
+      plugin.managers.interactivity.lociSelects.selectOnly({ loci }, false);
     },
 
-    clearHighlight() {
-      plugin.managers.interactivity.lociHighlights.clearHighlights();
+    async clearHighlight() {
+      plugin.managers.interactivity.lociSelects.deselectAll();
     },
 
     focus(loci, options?: FocusOptions) {
