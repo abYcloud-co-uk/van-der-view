@@ -90,7 +90,7 @@ _Last updated: 2026-07-01 · 12 pages · 17 sources_
   `clear-highlight` command and async `MolView.clearHighlight()`. Click-empty does NOT clear it (Mol\*'s click
   bindings are gated behind `selectionMode`, off by default). An initial overpaint approach was pivoted to
   select-marking after review + user feedback (see raw/0016, raw/0017).
-  On `fix/highlight-persistence`, pending a demo GPU visual pass before PR ([[command-schema]],
+  On `fix/highlight-persistence`, **GPU-verified 2026-07-01**, ready for PR ([[command-schema]],
   [[molstar-appearance]]). Still deferred: `highlight.style` (v1.1b) and the multi-structure
   transparency getter.
 

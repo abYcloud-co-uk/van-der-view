@@ -64,7 +64,7 @@ The **trajectory cluster** (PR #17) added `no_trajectory` (play/stop/seek with n
 |---|---|---|---|
 | `load-structure` | **v1** | `{ source:"pdb"\|"url"\|"inline", id?, url?, data?, format? }` | `clear()` then `download` (pdb/url) or `rawData` (inline) + `parseTrajectory` + preset; via `resolveStructure` ([[molstar-api]]) — **replaces** the scene (v1 = single-structure) |
 | `highlight` | **v1** | `{ selection: Selection }` | `lociSelects.selectOnly` (select-marking channel — native tint + outline, persistent, fix #38) |
-| `clear-highlight` | **v1** | `{}` | `lociSelects.deselectAll` |
+| `clear-highlight` | **#38** | `{}` | `lociSelects.deselectAll` — removes the persistent highlight; **post-v0.4.0 addition** (not in released v1) |
 | `focus` | **v1** | `{ selection: Selection, durationMs?, zoomOut?:number }` | `managers.camera.focusLoci(loci, { durationMs, extraRadius })` |
 | `get-scene-context` | **v1** | `{}` | **read tool** → `getSceneContext()` (the "up" channel) |
 | `reset-camera` | **v1** | `{}` | `managers.camera.reset()` |

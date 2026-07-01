@@ -277,8 +277,11 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
       // selection lives in structure.selection (not on a representation node), it survives
       // set-color/set-representation rebuilds too. selectOnly replaces the prior selection →
       // replace semantics for free. applyGranularity=false keeps exactly the resolved loci.
-      // NOTE: the default plugin binds left-click-on-empty to deselectAll, so clicking empty
-      // canvas clears the highlight — an accepted UX tradeoff (single-channel select highlight).
+      // Fully persistent: Mol*'s click bindings (incl. clickDeselectAllOnEmpty) are gated behind
+      // ctx.selectionMode (default false), so clicking empty canvas does NOT clear it (raw/0017).
+      // LIMITATION: this OWNS Mol*'s shared select channel — highlight replaces, and clearHighlight
+      // clears, the WHOLE selection. A host that independently uses Mol* selection (or enables
+      // selectionMode for user click-select) will see its selection replaced/cleared by these.
       plugin.managers.interactivity.lociSelects.selectOnly({ loci }, false);
     },
 
