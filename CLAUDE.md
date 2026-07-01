@@ -130,13 +130,15 @@ cores have all landed** (`src/`):
   An xhigh review found no library defects; its demo/doc follow-ups (chat-failure turn-loss, unbounded history,
   proxy UTF-8 + base-URL) are tracked in `fix/pr-35-followups`.
 - **Persistent-highlight fix** (issue #38, branch `fix/highlight-persistence`; **post-v0.4.0, currently
-  unreleased**; demo GPU visual pass deferred to user at PR time). The `highlight` command now uses Mol\*'s
+  unreleased**; **demo GPU-verified 2026-07-01**). The `highlight` command now uses Mol\*'s
   **select-marking channel** (`plugin.managers.interactivity.lociSelects.selectOnly({ loci }, false)`) — the
   native ~30% tint + marking-pass edge outline, persistent across hover and representation rebuilds (selection
   lives in `structure.selection`); `clear-highlight` command + async `MolView.clearHighlight()` call
   `lociSelects.deselectAll()`. Port signatures promoted to `highlight(loci): Promise<void>` and
   `clearHighlight(): Promise<void>` (were `void`). Replace semantics: `selectOnly` atomically replaces the
-  prior selection. Accepted tradeoff: left-click on empty canvas triggers Mol\*'s native `deselectAll()`.
+  prior selection. **Fully persistent (GPU-verified):** hover, click (empty or atoms), and restyle all leave
+  it intact — Mol\*'s click bindings are gated behind `selectionMode` (off by default), so click-empty does
+  *not* clear it (caveat: a host enabling `plugin.selectionMode` re-enables them).
   An initial overpaint approach was pivoted to select-marking after review + user feedback (reads as a solid
   recolor, no outline; also fragile across `set-color`/`set-representation`) — the pivot dissolved review
   findings #2 and #4. `highlight`'s input schema is **unchanged** (`{ selection }`) — no host codegen impact.

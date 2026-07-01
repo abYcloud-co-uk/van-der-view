@@ -7,7 +7,7 @@ the right page. Schema and the three operations are defined in [CLAUDE.md](CLAUD
 > bridges an AI agent and the Mol\* 3D molecular renderer via a lightweight
 > standardized JSON command schema. See [[project-overview]].
 
-_Last updated: 2026-07-01 · 12 pages · 16 sources_
+_Last updated: 2026-07-01 · 12 pages · 17 sources_
 
 ## Clusters
 
@@ -61,7 +61,8 @@ _Last updated: 2026-07-01 · 12 pages · 16 sources_
 | 0013 | Packaging merged (PR #19) — tsup ESM dual-entry build, scoped `@abycloud-co-uk/van-der-view` GHP package, `verify:package` gate + molstar-free guard; molstar optional / react required peers; external-review fix wave |
 | 0014 | v1.1a representation cluster merged (PR #21) — 5 commands + the per-selection-component appearance model (color on the owned component → persists + per-selection schemes; preset hidden under per-loci transparency); two rejected drafts + a GPU pass; Mol\* appearance APIs + theme names; 3 review rounds |
 | 0015 | Persistent highlight via overpaint + `clear-highlight` command (#38) — replaces the transient hover-marking channel; API gotcha (overpaint decorator on the representation node → restyle drops it → re-assert) + handle-clear serialization fix; async port; yellow default; documented "existing-geometry-only" limit |
-| 0016 | Highlight pivot — overpaint → select-marking (supersedes 0015): `lociSelects.selectOnly`/`deselectAll`; native tint + outline; persistent across hover + representation rebuilds; click-empty-clears tradeoff; dissolves review findings #2 + #4 |
+| 0016 | Highlight pivot — overpaint → select-marking (supersedes 0015): `lociSelects.selectOnly`/`deselectAll`; native tint + outline; persistent across hover + representation rebuilds; dissolves review findings #2 + #4 |
+| 0017 | Highlight fully persistent (supersedes 0016, GPU-verified): click-empty does NOT clear — Mol\*'s click bindings are gated behind `selectionMode` (default off); clears only via clear-highlight/handle/replace/reload |
 
 ## Open questions (rollup)
 - ✅ **Selection tests in Node** — resolved: pure-Node `Structure`/loci build confirmed (raw/0007) and the executor + `resolveSelection` are unit-tested (raw/0008, [[testing-strategy]]).
@@ -82,12 +83,13 @@ _Last updated: 2026-07-01 · 12 pages · 16 sources_
   **v1.1b** (`load-scene`, `toggle-xr`, `highlight.style`, multi-representation components for mixed
   polymer+ligand selections), or **trajectory follow-ups** (in-XR playback, palindrome/trim/multi-trajectory);
   v1 runtime + trajectory cluster + packaging + the v1.1a representation cluster are complete ([[project-overview]]).
-- ✅ **Persistent highlight shipped (#38, raw/0015, raw/0016; post-v0.4.0, unreleased)** — the `highlight`
+- ✅ **Persistent highlight shipped (#38, raw/0015→0016→0017; post-v0.4.0, unreleased)** — the `highlight`
   command now uses Mol\*'s **select-marking channel** (`lociSelects.selectOnly`/`deselectAll`) — native
-  ~30% tint + marking-pass edge outline, persistent across hover and representation rebuilds (selection lives
-  in `structure.selection`); replace semantics; plus a dispatchable `clear-highlight` command and async
-  `MolView.clearHighlight()`. Accepted tradeoff: left-click on empty canvas triggers native `deselectAll()`.
-  An initial overpaint approach was pivoted to select-marking after review + user feedback (see raw/0016).
+  ~30% tint + marking-pass edge outline, **fully persistent (GPU-verified)** across hover, click, and
+  representation rebuilds (selection lives in `structure.selection`); replace semantics; plus a dispatchable
+  `clear-highlight` command and async `MolView.clearHighlight()`. Click-empty does NOT clear it (Mol\*'s click
+  bindings are gated behind `selectionMode`, off by default). An initial overpaint approach was pivoted to
+  select-marking after review + user feedback (see raw/0016, raw/0017).
   On `fix/highlight-persistence`, pending a demo GPU visual pass before PR ([[command-schema]],
   [[molstar-appearance]]). Still deferred: `highlight.style` (v1.1b) and the multi-structure
   transparency getter.

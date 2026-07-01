@@ -267,10 +267,15 @@ This gives the **native ~30% tint + marking-pass edge outline** — the same vis
 effect as when a user clicks/selects an atom in Mol\*'s default UI — which reads
 unmistakably as a "highlight" rather than a recolor.
 
-**Accepted tradeoff:** The default plugin binds left-click on an empty canvas to
-`deselectAll()` (Mol\*'s `clickDeselectAllOnEmpty` behavior), so clicking empty space
-clears the highlight. This follows Mol\*'s native selection UX; explicit clear paths
-(`clear-highlight` command, `MolView.clearHighlight()`, scene reload) are unchanged.
+**Fully persistent (GPU-verified 2026-07-01 — corrects an earlier "click-empty clears"
+assumption):** hover, click (empty *or* atoms), `focus`, and restyle all leave the
+highlight intact. Mol\*'s `clickDeselectAllOnEmpty` behavior — and all click-select
+bindings — early-return unless `ctx.selectionMode` is true (`representation.js`), and
+`selectionMode` defaults to `false` (`context.js`) and is not enabled by `createMolView`.
+So clicking empty canvas does **not** clear the highlight. Clear paths: the
+`clear-highlight` command, `MolView.clearHighlight()`, a replacing `highlight`, and a
+scene reload. Caveat: a host that sets `plugin.selectionMode = true` re-enables the click
+bindings, at which point clicks would affect the highlight (see raw/0017).
 
 **Dissolved review findings:** The pivot also eliminates two adapter complexities that
 the overpaint approach needed code to fix:
