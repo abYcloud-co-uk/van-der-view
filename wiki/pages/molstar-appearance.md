@@ -4,7 +4,7 @@ slug: molstar-appearance
 type: how-to
 status: stable
 sources: [raw/0014-representation-cluster-merged-2026-06-23.md, raw/0001-molstar-research.md]
-updated: 2026-06-23
+updated: 2026-07-01
 links: [molstar-api, command-schema, agent-command-flow, glossary, project-overview]
 ---
 
@@ -21,6 +21,7 @@ links: [molstar-api, command-schema, agent-command-flow, glossary, project-overv
 - The `default` preset's draw of those atoms is hidden with **per-loci transparency**, so the owned component is the only thing rendered for them — **no double-draw, no structure-wide mutation, no clear-all** (src: raw/0014).
 - **Color lives on the component's representation**, so it **persists** across representation changes and a **scheme scopes to the selection** (not the whole structure): hex → `color:'uniform' + colorParams:{value}`; scheme → `color:<theme name>` (src: raw/0014).
 - ⚠️ A selection draws with **one** representation. A mixed polymer+ligand selection can't color/hide both cleanly — deferred to multi-representation components in v1.1b (Open questions).
+- **Overpaint layer** (`setStructureOverpaint`/`clearStructureOverpaint`) is used by the persistent `highlight` command (fix #38, [[command-schema]]): highlight paints a yellow layer directly over existing geometry (replace semantics — a new highlight wipes the prior one, `clear-highlight` removes it entirely). Distinct from the transparency-based preset hiding and from color-on-representation above. ⚠️ Overpaint only covers existing geometry — atoms with no active representation won't show the highlight.
 - The model took **two rejected drafts + a GPU pass** to get right — the breakages were visual/compositional, invisible to typecheck (src: raw/0014).
 
 ## Details

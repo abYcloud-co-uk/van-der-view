@@ -4,7 +4,7 @@ slug: agent-command-flow
 type: how-to
 status: stable
 sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md]
-updated: 2026-06-29
+updated: 2026-07-01
 links: [command-schema, molstar-api, headless-react, project-overview, molstar-trajectories]
 ---
 
@@ -80,7 +80,7 @@ the Anthropic pair. Adding it touched neither the executor nor the command specs
 interface ExecutorContext {          // implemented by the real Mol* adapter (Plan 3a) or a test fake
   getStructure(): Structure | undefined;
   loadStructure(resolved): Promise<void>;
-  highlight(loci): void;  clearHighlight(): void;
+  highlight(loci): Promise<void>;  clearHighlight(): Promise<void>;
   focus(loci, options?): void;  resetCamera(): void;
   getSceneContext(): SceneContext;   // SceneContext.trajectory carries frameCount/currentFrame/isPlaying
   // trajectory cluster (PR #17):
@@ -102,7 +102,7 @@ const { dispatch } = createExecutor(ctx, { resolveStructure, resolveCoordinates 
 
 The concrete Mol\* calls the **adapter** wires behind the port — implemented in Plan 3a as
 `molstarExecutorContext(plugin)` (all real APIs in [[molstar-api]]): `highlight` →
-`interactivity.lociHighlights.highlightOnly({ loci })`, `focus` →
+`setStructureOverpaint` (persistent overpaint, replace semantics; fix #38 — was `interactivity.lociHighlights.highlightOnly`), `clearHighlight` → `clearStructureOverpaint`, `focus` →
 `managers.camera.focusLoci(loci, { durationMs, extraRadius })`, `load-structure` →
 `plugin.clear()` + `builders.data.*` + `parseTrajectory` + preset, `reset-camera` →
 `managers.camera.reset()`, `getSceneContext` from the hierarchy (chains memoized per
