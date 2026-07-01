@@ -96,6 +96,20 @@ describe('createExecutor — highlight/focus', () => {
     expect(StructureElement.Loci.size(loci)).toBe(8); // chain A
   });
 
+  it('clears the highlight via the port for clear-highlight', async () => {
+    const ctx = fakeContext();
+    const res = await createExecutor(ctx).dispatch({ name: 'clear-highlight', input: {} });
+    expect(res.ok).toBe(true);
+    expect(ctx.clearHighlight).toHaveBeenCalledOnce();
+  });
+
+  it('clear-highlight needs no structure or selection', async () => {
+    const ctx = fakeContext({ getStructure: () => undefined });
+    const res = await createExecutor(ctx).dispatch({ name: 'clear-highlight', input: {} });
+    expect(res.ok).toBe(true);
+    expect(ctx.clearHighlight).toHaveBeenCalledOnce();
+  });
+
   it('focuses a resolved selection, passing durationMs through', async () => {
     const ctx = fakeContext();
     const res = await createExecutor(ctx).dispatch({
