@@ -7,7 +7,7 @@ the right page. Schema and the three operations are defined in [CLAUDE.md](CLAUD
 > bridges an AI agent and the Mol\* 3D molecular renderer via a lightweight
 > standardized JSON command schema. See [[project-overview]].
 
-_Last updated: 2026-06-23 · 12 pages · 14 sources_
+_Last updated: 2026-07-01 · 12 pages · 15 sources_
 
 ## Clusters
 
@@ -21,7 +21,7 @@ _Last updated: 2026-06-23 · 12 pages · 14 sources_
 ### Schema / Protocol
 | Page | Hook |
 |---|---|
-| [[command-schema]] | The agent↔renderer JSON contract — v1 + trajectory + v1.1a representation command catalog, `Selection` type. `decision` `stable` |
+| [[command-schema]] | The agent↔renderer JSON contract — v1 + trajectory + v1.1a representation catalog + persistent `highlight`/`clear-highlight` (#38), `Selection` type. `decision` `stable` |
 | [[agent-command-flow]] | End-to-end tool-calling loop; provider adapter + provider-agnostic executor. `how-to` |
 | [[molviewspec]] | The MVS declarative scene standard (`kind/params/children` tree). `entity` |
 
@@ -30,7 +30,7 @@ _Last updated: 2026-06-23 · 12 pages · 14 sources_
 |---|---|
 | [[molstar-api]] | Headless `PluginContext`, managers, MolScript selection, camera focus. `entity` |
 | [[molstar-trajectories]] | Loading MD trajectories (topology + XTC/TRR/DCD coords) via `loadTrajectory` + frame playback; **realized** by the trajectory cluster (PR #17). `how-to` `stable` |
-| [[molstar-appearance]] | Per-selection representation/color/visibility — one owned component + per-loci transparency; **realized** by the v1.1a representation cluster (PR #21). `how-to` `stable` |
+| [[molstar-appearance]] | Per-selection representation/color/visibility — one owned component + per-loci transparency; **realized** by the v1.1a representation cluster (PR #21); + persistent `highlight` overpaint (#38). `how-to` `stable` |
 | [[molstar-webxr]] | WebXR is native (`canvas3d.xr`) since v5.0.0 — incl. the user-gesture rule. `entity` |
 
 ### Integration
@@ -60,6 +60,7 @@ _Last updated: 2026-06-23 · 12 pages · 14 sources_
 | 0012 | Trajectory + playback cluster merged (PR #17) & GPU-verified — 4 commands, `resolveCoordinates` hook, port members, pure-Node spike, demo panel; external-review fix wave (H1 dropped-wiring etc.) |
 | 0013 | Packaging merged (PR #19) — tsup ESM dual-entry build, scoped `@abycloud-co-uk/van-der-view` GHP package, `verify:package` gate + molstar-free guard; molstar optional / react required peers; external-review fix wave |
 | 0014 | v1.1a representation cluster merged (PR #21) — 5 commands + the per-selection-component appearance model (color on the owned component → persists + per-selection schemes; preset hidden under per-loci transparency); two rejected drafts + a GPU pass; Mol\* appearance APIs + theme names; 3 review rounds |
+| 0015 | Persistent highlight via overpaint + `clear-highlight` command (#38) — replaces the transient hover-marking channel; API gotcha (overpaint decorator on the representation node → restyle drops it → re-assert) + handle-clear serialization fix; async port; yellow default; documented "existing-geometry-only" limit |
 
 ## Open questions (rollup)
 - ✅ **Selection tests in Node** — resolved: pure-Node `Structure`/loci build confirmed (raw/0007) and the executor + `resolveSelection` are unit-tested (raw/0008, [[testing-strategy]]).
@@ -80,6 +81,11 @@ _Last updated: 2026-06-23 · 12 pages · 14 sources_
   **v1.1b** (`load-scene`, `toggle-xr`, `highlight.style`, multi-representation components for mixed
   polymer+ligand selections), or **trajectory follow-ups** (in-XR playback, palindrome/trim/multi-trajectory);
   v1 runtime + trajectory cluster + packaging + the v1.1a representation cluster are complete ([[project-overview]]).
+- ✅ **Persistent highlight shipped (#38, raw/0015; post-v0.4.0, unreleased)** — the `highlight` command is
+  now a persistent overpaint layer (replace semantics) surviving hover/click/focus, plus a dispatchable
+  `clear-highlight` command; the port + `MolView.clearHighlight()` went async. On `fix/highlight-persistence`,
+  pending a demo GPU visual pass before PR ([[command-schema]], [[molstar-appearance]]). Still deferred:
+  `highlight.style` (v1.1b) and the multi-structure overpaint/transparency getter.
 
 ## How to grow this wiki
 - `/wiki-ingest <url|file|text>` — add a source, synthesize pages

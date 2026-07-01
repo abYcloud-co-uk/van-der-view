@@ -3,7 +3,7 @@ title: Agent Command Flow (adapter + executor)
 slug: agent-command-flow
 type: how-to
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md, raw/0015-highlight-persistence-2026-07-01.md]
 updated: 2026-07-01
 links: [command-schema, molstar-api, headless-react, project-overview, molstar-trajectories]
 ---

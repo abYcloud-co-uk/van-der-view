@@ -3,7 +3,7 @@ title: Glossary
 slug: glossary
 type: concept
 status: stable
-sources: [raw/0001-molstar-research.md, raw/0002-molviewspec-research.md]
+sources: [raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0015-highlight-persistence-2026-07-01.md]
 updated: 2026-07-01
 links: [molstar-api, molviewspec]
 ---
