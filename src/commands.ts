@@ -78,13 +78,19 @@ export const VDV_COMMANDS: readonly CommandSpec[] = deepFreeze<CommandSpec[]>([
   },
   {
     name: 'highlight',
-    description: 'Transiently highlight a selection of residues, a chain, or a ligand.',
+    description:
+      'Highlight a selection of residues, a chain, or a ligand. Persists until replaced by another highlight or removed with clear-highlight.',
     inputSchema: {
       type: 'object',
       properties: { selection: selectionSchema },
       required: ['selection'],
       additionalProperties: false,
     },
+  },
+  {
+    name: 'clear-highlight',
+    description: 'Remove the current persistent highlight, if any.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
     name: 'focus',
