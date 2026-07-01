@@ -130,15 +130,17 @@ cores have all landed** (`src/`):
   An xhigh review found no library defects; its demo/doc follow-ups (chat-failure turn-loss, unbounded history,
   proxy UTF-8 + base-URL) are tracked in `fix/pr-35-followups`.
 - **Persistent-highlight fix** (issue #38, branch `fix/highlight-persistence`; **post-v0.4.0, currently
-  unreleased**; demo GPU visual pass deferred to user at PR time). The `highlight` command now renders a
-  persistent **overpaint** layer via Mol\*'s `setStructureOverpaint` (replace semantics — a new highlight
-  wipes the prior one; persists across hover/click/focus until replaced, cleared, or scene reloaded). A new
-  `clear-highlight` command (empty input schema) removes it; `MolView.clearHighlight()` does the same from
-  the handle. Port signatures promoted to `highlight(loci): Promise<void>` and `clearHighlight(): Promise<void>`
-  (were `void`). Default highlight color is yellow (`Color(0xffff00)`), deliberately distinct from Mol\*'s pink
-  hover marker. ⚠️ Overpaint only colors existing geometry — atoms with no active representation won't show
-  the highlight. `highlight`'s input schema is **unchanged** (`{ selection }`) — no host codegen impact. No new
-  error code. Suite now **189 tests**. See `wiki/pages/molstar-appearance.md` and `wiki/pages/glossary.md`.
+  unreleased**; demo GPU visual pass deferred to user at PR time). The `highlight` command now uses Mol\*'s
+  **select-marking channel** (`plugin.managers.interactivity.lociSelects.selectOnly({ loci }, false)`) — the
+  native ~30% tint + marking-pass edge outline, persistent across hover and representation rebuilds (selection
+  lives in `structure.selection`); `clear-highlight` command + async `MolView.clearHighlight()` call
+  `lociSelects.deselectAll()`. Port signatures promoted to `highlight(loci): Promise<void>` and
+  `clearHighlight(): Promise<void>` (were `void`). Replace semantics: `selectOnly` atomically replaces the
+  prior selection. Accepted tradeoff: left-click on empty canvas triggers Mol\*'s native `deselectAll()`.
+  An initial overpaint approach was pivoted to select-marking after review + user feedback (reads as a solid
+  recolor, no outline; also fragile across `set-color`/`set-representation`) — the pivot dissolved review
+  findings #2 and #4. `highlight`'s input schema is **unchanged** (`{ selection }`) — no host codegen impact.
+  No new error code. Suite now **189 tests**. See `wiki/pages/molstar-appearance.md` and `wiki/pages/glossary.md`.
 
 So the v1 runtime + the trajectory cluster + packaging + the v1.1a representation cluster + the hover surface +
 the load supersede/dedup cluster are complete and **fully GPU-validated including WebXR**, the library is

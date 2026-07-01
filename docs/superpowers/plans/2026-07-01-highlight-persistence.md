@@ -1,5 +1,11 @@
 # Highlight Persistence Implementation Plan
 
+> **Historical note:** Task 3's overpaint mechanism (`setStructureOverpaint`) was later
+> superseded by Mol\*'s select-marking channel (`lociSelects.selectOnly`/`deselectAll`) after
+> external review + user feedback found overpaint read as a solid recolor with no outline. The
+> pivot also dissolved review findings #2 and #4. See the spec's "Revision — pivot to
+> select-marking" section for full details.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the `highlight` command persist across pointer hover/click/`focus` (replace semantics), and add a dispatchable `clear-highlight` command to remove it.

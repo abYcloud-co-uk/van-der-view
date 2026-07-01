@@ -241,3 +241,46 @@ executor's existing `try/catch` → `internal_error`.
 | tests | executor + command-catalog cases (Node) |
 | `examples/demo/` | "Clear highlight" control (GPU verification) |
 | `wiki/`, `CLAUDE.md` | docs sync |
+
+## Revision — pivot to select-marking (2026-07-01, post-review)
+
+After the overpaint implementation shipped (Tasks 1–4 above), an external review and
+user feedback prompted a pivot.
+
+**Problem with overpaint:** `setStructureOverpaint` produces a 100% solid color
+replacement with no outline or glow — reviewers and the user noted it reads as
+"recolored," not "highlighted." Additionally, overpaint was fragile: the decorator
+attaches as a child of the representation node, so `set-color`/`set-representation`
+(which rebuild that node) silently dropped the highlight, requiring `highlightLoci`
+tracking and re-assertion logic in the adapter.
+
+**Pivot:** The adapter was changed to use Mol\*'s **select-marking channel** instead:
+
+```ts
+// highlight:
+plugin.managers.interactivity.lociSelects.selectOnly({ loci }, false);
+// clearHighlight:
+plugin.managers.interactivity.lociSelects.deselectAll();
+```
+
+This gives the **native ~30% tint + marking-pass edge outline** — the same visual
+effect as when a user clicks/selects an atom in Mol\*'s default UI — which reads
+unmistakably as a "highlight" rather than a recolor.
+
+**Accepted tradeoff:** The default plugin binds left-click on an empty canvas to
+`deselectAll()` (Mol\*'s `clickDeselectAllOnEmpty` behavior), so clicking empty space
+clears the highlight. This follows Mol\*'s native selection UX; explicit clear paths
+(`clear-highlight` command, `MolView.clearHighlight()`, scene reload) are unchanged.
+
+**Dissolved review findings:** The pivot also eliminates two adapter complexities that
+the overpaint approach needed code to fix:
+- **Finding #2** (set-color/set-representation drops highlight): select-marking lives in
+  `structure.selection` and is re-applied automatically across representation rebuilds —
+  no `highlightLoci` tracking needed.
+- **Finding #4** (handle-clear race with loadStructure serializers): `deselectAll()` is
+  a safe render-time op with no state-tree mutation — no serialization domain conflict.
+
+The `highlight` command's input schema, error codes, port signatures (`Promise<void>`),
+`clear-highlight` command, and test suite count (189) are all unchanged by the pivot.
+Default highlight color is now the native Mol\* `selectColor` (green rgb(51,255,25))
+rather than yellow `Color(0xffff00)`. See `wiki/raw/0016-highlight-select-marking-2026-07-01.md`.

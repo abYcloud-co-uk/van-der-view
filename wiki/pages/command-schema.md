@@ -3,7 +3,7 @@ title: Agent Command Schema (van-der-view contract)
 slug: command-schema
 type: decision
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md, raw/0014-representation-cluster-merged-2026-06-23.md, raw/0015-highlight-persistence-2026-07-01.md]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0006-xr-voice-boundary-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md, raw/0014-representation-cluster-merged-2026-06-23.md, raw/0015-highlight-persistence-2026-07-01.md, raw/0016-highlight-select-marking-2026-07-01.md]
 updated: 2026-07-01
 links: [agent-command-flow, molviewspec, molstar-api, molstar-webxr, project-overview, molstar-trajectories, molstar-appearance]
 ---
@@ -63,8 +63,8 @@ The **trajectory cluster** (PR #17) added `no_trajectory` (play/stop/seek with n
 | command | tier | params (sketch) | Mol\* mapping |
 |---|---|---|---|
 | `load-structure` | **v1** | `{ source:"pdb"\|"url"\|"inline", id?, url?, data?, format? }` | `clear()` then `download` (pdb/url) or `rawData` (inline) + `parseTrajectory` + preset; via `resolveStructure` ([[molstar-api]]) — **replaces** the scene (v1 = single-structure) |
-| `highlight` | **v1** | `{ selection: Selection }` | overpaint (`setStructureOverpaint`), replace semantics — persistent (fix #38) |
-| `clear-highlight` | **v1** | `{}` | `clearStructureOverpaint` |
+| `highlight` | **v1** | `{ selection: Selection }` | `lociSelects.selectOnly` (select-marking channel — native tint + outline, persistent, fix #38) |
+| `clear-highlight` | **v1** | `{}` | `lociSelects.deselectAll` |
 | `focus` | **v1** | `{ selection: Selection, durationMs?, zoomOut?:number }` | `managers.camera.focusLoci(loci, { durationMs, extraRadius })` |
 | `get-scene-context` | **v1** | `{}` | **read tool** → `getSceneContext()` (the "up" channel) |
 | `reset-camera` | **v1** | `{}` | `managers.camera.reset()` |

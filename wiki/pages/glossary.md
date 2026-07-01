@@ -3,7 +3,7 @@ title: Glossary
 slug: glossary
 type: concept
 status: stable
-sources: [raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0015-highlight-persistence-2026-07-01.md]
+sources: [raw/0001-molstar-research.md, raw/0002-molviewspec-research.md, raw/0015-highlight-persistence-2026-07-01.md, raw/0016-highlight-select-marking-2026-07-01.md]
 updated: 2026-07-01
 links: [molstar-api, molviewspec]
 ---
@@ -21,7 +21,7 @@ links: [molstar-api, molviewspec]
 | **PluginContext** | The headless Mol* plugin instance — no React UI. The thing van-der-view holds. |
 | **Canvas3D** | Mol*'s raw WebGL rendering core; exposes `canvas3d.xr` for WebXR. |
 | **loci** | A *location* in a structure — a set of atoms/residues/elements (`StructureElement.Loci`). The unit highlight/focus/select operate on. |
-| **selection vs highlight** | *Selection* is persistent (`structure.selection`); Mol\*'s *highlight channel* (`interactivity.lociHighlights`) is transient/hover-style. The vdv **`highlight` command** no longer maps to that channel — since fix #38 it paints a persistent **overpaint** layer (`setStructureOverpaint`) that survives hover/click/focus and is removed only by `clear-highlight` or a scene reload. |
+| **selection vs highlight** | *Selection* is persistent (`structure.selection`); Mol\*'s *highlight channel* (`interactivity.lociHighlights`) is transient/hover-style (pointer hover only). The vdv **`highlight` command** maps to Mol\*'s **select-marking channel** (`lociSelects`), not the transient hover channel — since fix #38 it calls `lociSelects.selectOnly({ loci }, false)`, giving a persistent native tint + marking-pass outline that survives hover and representation rebuilds; `clear-highlight` / `MolView.clearHighlight()` call `lociSelects.deselectAll()`. (An intermediate overpaint approach was used briefly but pivoted away from because it read as a solid recolor with no outline — see raw/0016.) |
 | **component** | (MVS) a selected substructure that representations/colors attach to. |
 | **representation** | The visual style of a component: `cartoon`, `ball_and_stick`, `spacefill`, `surface`, … |
 | **MolScript** | Mol*'s query language for building selections programmatically (`Script.getStructureSelection`). |

@@ -3,7 +3,7 @@ title: Mol* Appearance (per-selection representation, color, visibility)
 slug: molstar-appearance
 type: how-to
 status: stable
-sources: [raw/0014-representation-cluster-merged-2026-06-23.md, raw/0001-molstar-research.md, raw/0015-highlight-persistence-2026-07-01.md]
+sources: [raw/0014-representation-cluster-merged-2026-06-23.md, raw/0001-molstar-research.md, raw/0015-highlight-persistence-2026-07-01.md, raw/0016-highlight-select-marking-2026-07-01.md]
 updated: 2026-07-01
 links: [molstar-api, command-schema, agent-command-flow, glossary, project-overview]
 ---
@@ -21,7 +21,7 @@ links: [molstar-api, command-schema, agent-command-flow, glossary, project-overv
 - The `default` preset's draw of those atoms is hidden with **per-loci transparency**, so the owned component is the only thing rendered for them — **no double-draw, no structure-wide mutation, no clear-all** (src: raw/0014).
 - **Color lives on the component's representation**, so it **persists** across representation changes and a **scheme scopes to the selection** (not the whole structure): hex → `color:'uniform' + colorParams:{value}`; scheme → `color:<theme name>` (src: raw/0014).
 - ⚠️ A selection draws with **one** representation. A mixed polymer+ligand selection can't color/hide both cleanly — deferred to multi-representation components in v1.1b (Open questions).
-- **Overpaint layer** (`setStructureOverpaint`/`clearStructureOverpaint`) is used by the persistent `highlight` command (fix #38, [[command-schema]]; src: raw/0015): highlight paints a yellow layer directly over existing geometry (replace semantics — a new highlight wipes the prior one, `clear-highlight` removes it entirely). Distinct from the transparency-based preset hiding and from color-on-representation above. ⚠️ **Overpaint attaches its decorator as a child of the representation node**, so `set-color`/`set-representation` — which rebuild that node — drop it; the adapter tracks the active highlight loci and **re-asserts** the overpaint after those mutations so a highlighted selection survives restyling (src: raw/0015). ⚠️ Overpaint only covers existing geometry — atoms with no active representation won't show the highlight.
+- The persistent **`highlight` command** (fix #38, [[command-schema]]) uses Mol\*'s **select-marking channel**: `plugin.managers.interactivity.lociSelects.selectOnly({ loci }, false)` (highlight) and `lociSelects.deselectAll()` (clear). This gives the **native ~30% color tint + marking-pass edge outline** (not a solid recolor), and is **persistent** across hover and across representation rebuilds — the selection lives in `structure.selection` (a manager set), so Mol\* re-applies the marking automatically when representations are rebuilt. Replace semantics: `selectOnly` atomically clears the prior selection and marks the new loci. Accepted tradeoff: left-click on an empty canvas triggers Mol\*'s built-in `deselectAll()`, clearing the highlight; explicit clear paths are the `clear-highlight` command, `MolView.clearHighlight()`, and a scene reload (src: raw/0016). [Note: the initial implementation used an overpaint layer (`setStructureOverpaint`) — a solid recolor with no outline that read as "recolored" rather than "highlighted" and was fragile because overpaint attaches its decorator as a child of the representation node, which `set-color`/`set-representation` rebuilds drop. The select-marking pivot eliminated both issues.]
 - The model took **two rejected drafts + a GPU pass** to get right — the breakages were visual/compositional, invisible to typecheck (src: raw/0014).
 
 ## Details
@@ -98,8 +98,6 @@ setSubtreeVisibility(plugin.state.data, comp.ref, true); // true = hidden
 - **Multi-representation components (v1.1b)** — to color/hide a mixed polymer+ligand selection
   correctly, one component needs two representations (cartoon + ball-and-stick), both colored. Today
   such a selection draws as one type (the ligand stays visible but uncolored). Needs its own GPU pass.
-- **Multi-structure** — the transparency `lociGetter` (and the `highlight` overpaint getter
-  `async () => loci`, src: raw/0015) ignore the `structure` argument Mol\* passes; correct only
-  with one loaded structure. Revisit for multi-model/assembly components.
+- **Multi-structure** — the transparency `lociGetter` ignores the `structure` argument Mol\* passes; correct only with one loaded structure. Revisit for multi-model/assembly components.
 - **`highlight.style`** — the styled-highlight variant deferred from v1 is still open (v1.1b),
   separate from this per-selection restyle ([[command-schema]]).

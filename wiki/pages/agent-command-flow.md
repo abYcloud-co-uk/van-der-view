@@ -3,7 +3,7 @@ title: Agent Command Flow (adapter + executor)
 slug: agent-command-flow
 type: how-to
 status: stable
-sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md, raw/0015-highlight-persistence-2026-07-01.md]
+sources: [raw/0003-design-decisions-2026-06-18.md, raw/0001-molstar-research.md, raw/0005-integration-recon-saas-2026-06-18.md, raw/0008-plan2-executor-core-2026-06-18.md, raw/0009-plan3a-browser-runtime-core-2026-06-22.md, raw/0012-trajectory-cluster-merged-2026-06-23.md, raw/0015-highlight-persistence-2026-07-01.md, raw/0016-highlight-select-marking-2026-07-01.md]
 updated: 2026-07-01
 links: [command-schema, molstar-api, headless-react, project-overview, molstar-trajectories]
 ---
@@ -102,8 +102,10 @@ const { dispatch } = createExecutor(ctx, { resolveStructure, resolveCoordinates 
 
 The concrete Mol\* calls the **adapter** wires behind the port — implemented in Plan 3a as
 `molstarExecutorContext(plugin)` (all real APIs in [[molstar-api]]). `highlight` →
-`setStructureOverpaint` and `clearHighlight` → `clearStructureOverpaint`: a persistent overpaint
-layer with replace semantics (fix #38; was the transient `interactivity.lociHighlights.highlightOnly`).
+`lociSelects.selectOnly` and `clearHighlight` → `lociSelects.deselectAll`: persistent
+select-marking with native tint + outline, replace semantics (fix #38; was the transient
+`interactivity.lociHighlights.highlightOnly`; an intermediate overpaint approach was pivoted away
+from — see raw/0016).
 The rest: `focus` →
 `managers.camera.focusLoci(loci, { durationMs, extraRadius })`, `load-structure` →
 `plugin.clear()` + `builders.data.*` + `parseTrajectory` + preset, `reset-camera` →
