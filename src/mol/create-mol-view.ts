@@ -78,7 +78,10 @@ export async function createMolView(opts: CreateMolViewOptions): Promise<MolView
   return {
     dispatch,
     getSceneContext: () => ctx.getSceneContext(),
-    clearHighlight: () => ctx.clearHighlight(),
+    // Route through dispatch (not ctx.clearHighlight directly) so the handle's clear shares the
+    // executor's FIFO with load-structure — a direct adapter-serialized clear could race a load's
+    // plugin.clear()/applyPreset, which run on a different serialization domain (external review #4).
+    clearHighlight: () => dispatch({ name: 'clear-highlight', input: {} }).then(() => undefined),
     subscribeHover: (cb) => subscribeHoverEvents(bound.behaviors.interaction.hover, cb),
     xr,
     plugin: bound,

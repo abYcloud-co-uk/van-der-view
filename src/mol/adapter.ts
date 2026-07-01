@@ -143,6 +143,12 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
   };
   const components = new Map<string, CompEntry>();
 
+  /** Loci of the currently active persistent highlight (overpaint), or undefined if none.
+   *  Tracked so a set-color/set-representation that rebuilds a component's representation node
+   *  (dropping the overpaint decorator attached to it) can re-assert the highlight — otherwise
+   *  restyling a highlighted selection would silently wipe its highlight (external review #2). */
+  let highlightLoci: StructureElement.Loci | undefined;
+
   /** One serialized op chain for ALL appearance mutations. They share plugin state — the
    *  single preset transparency cell and the component tree — so even calls on *different*
    *  selections must not interleave their read-modify-write commits (a per-loci-key lock
@@ -235,6 +241,14 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
     entry.color = color;
   }
 
+  /** Apply the persistent highlight overpaint for `loci` across all current components
+   *  (preset + vdv). Wholesale clear-then-paint: overpaint is highlight-exclusive here, so this
+   *  both replaces a prior highlight and re-asserts one after a representation rebuild. */
+  async function paintHighlight(loci: StructureElement.Loci): Promise<void> {
+    await clearStructureOverpaint(plugin, presetComponents());
+    await setStructureOverpaint(plugin, presetComponents(), HIGHLIGHT_COLOR, async () => loci);
+  }
+
   const toModelParam = (t: ResolvedStructure): LoadTrajectoryParams['model'] =>
     t.url !== undefined
       ? { kind: 'model-url', url: t.url, format: t.format, isBinary: t.isBinary }
@@ -260,6 +274,7 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
       // (otherwise a second load would be appended and silently ignored).
       await plugin.clear();
       components.clear();
+      highlightLoci = undefined;
       signal?.throwIfAborted();                       // superseded → skip download + parse + preset
       const data =
         resolved.url !== undefined
@@ -279,16 +294,19 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
         // Overpaint is highlight-exclusive in this adapter (set-color colors the vdv
         // component's representation; preset-hiding uses the transparency node), so a
         // wholesale clear IS the replace step — no last-loci tracking needed. Target the
-        // full component list (preset + vdv) so a highlight also shows over a selection
-        // that set-color previously recolored. Overpaint colors *existing* geometry only,
-        // so atoms no representation draws won't show the highlight (documented limitation).
-        await clearStructureOverpaint(plugin, presetComponents());
-        await setStructureOverpaint(plugin, presetComponents(), HIGHLIGHT_COLOR, async () => loci);
+        // full component list (preset + vdv) so a highlight also shows over a selection that
+        // set-color previously recolored. Track the loci so a later set-color/set-representation
+        // can re-assert it — rebuilding a representation drops the overpaint decorator on that
+        // node (external review #2). Overpaint colors *existing* geometry only, so atoms no
+        // representation draws won't show the highlight (documented limitation).
+        highlightLoci = loci;
+        await paintHighlight(loci);
       });
     },
 
     clearHighlight() {
       return serialize(async () => {
+        highlightLoci = undefined;
         await clearStructureOverpaint(plugin, presetComponents());
       });
     },
@@ -345,6 +363,7 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
       const priorScene = plugin.state.data.getSnapshot();
       await plugin.clear();
       components.clear();
+      highlightLoci = undefined;
       traj = undefined;
       let result;
       try {
@@ -413,6 +432,9 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
         if (!component) return;
         await applyStyle(key, type, components.get(key)?.color);
         await hidePresetCoverage(loci, type);
+        // Rebuilding this component's representation dropped any overpaint decorator on it, so
+        // re-assert a live highlight — else restyling a highlighted selection wipes it (#2).
+        if (highlightLoci) await paintHighlight(highlightLoci);
       });
     },
 
@@ -429,6 +451,9 @@ export function molstarExecutorContext(plugin: PluginContext): ExecutorContext {
         const type = components.get(key)?.reprType ?? defaultReprFor(loci);
         await applyStyle(key, type, color);
         await hidePresetCoverage(loci, type);
+        // Re-assert a live highlight (see setRepresentation): the representation rebuild above
+        // drops the overpaint decorator on this component (#2).
+        if (highlightLoci) await paintHighlight(highlightLoci);
       });
     },
 
