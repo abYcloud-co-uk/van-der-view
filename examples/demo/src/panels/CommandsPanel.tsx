@@ -17,8 +17,11 @@ export function CommandsPanel() {
       <button disabled={disabled} onClick={() => run({ name: 'highlight', input: { selection: { preset: 'ligand' } } })}>
         Highlight ligand
       </button>{' '}
-      <button disabled={disabled} onClick={() => viewer!.clearHighlight()}>
-        Clear highlight
+      <button disabled={disabled} onClick={() => run({ name: 'clear-highlight', input: {} })}>
+        Clear highlight (command)
+      </button>{' '}
+      <button disabled={disabled} onClick={() => void viewer!.clearHighlight()}>
+        Clear highlight (handle)
       </button>
       <hr style={{ borderColor: '#333' }} />
       <label style={{ display: 'block', fontSize: 12, marginBottom: 6 }}>
