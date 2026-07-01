@@ -13,17 +13,19 @@ import { SupersedePanel } from './panels/SupersedePanel';
 
 /**
  * Canvas + a cursor-following hover tooltip. Owns the hover state HERE (not in `App`) so a
- * pointer-move re-renders only this subtree — the panel column is spared.
+ * pointer-move re-renders only this subtree — the panel column is spared. `inset` offsets the
+ * canvas from the viewport origin so the #39 fix is visible: the tooltip must still track the
+ * cursor (proving `screen` carries the canvas rect offset).
  */
-function HoverLayer() {
+function HoverLayer({ inset }: { inset: boolean }) {
   const [hover, setHover] = useState<HoverInfo | null>(null);
   return (
-    <div className="vdv-canvas">
-      <MolViewCanvas style={{ width: '100%', height: '100vh' }} onHover={setHover} />
+    <div className={inset ? 'vdv-canvas vdv-canvas--inset' : 'vdv-canvas'}>
+      <MolViewCanvas style={{ width: '100%', height: '100%' }} onHover={setHover} />
       {/* Render only when we have a position (`screen` may be absent on a non-pointer emit), so the
-          tooltip never pins to the corner. `screen` is pageX/pageY (document coords); this demo is
-          full-viewport and non-scrolling, so position:fixed needs no scroll offset — a scrolling
-          host would subtract window.scrollX/scrollY. */}
+          tooltip never pins to the corner. `screen` is viewport/client coords (like clientX/clientY):
+          a position:fixed tooltip at `screen` tracks the cursor wherever the canvas sits — no scroll
+          or offset math (#39). */}
       {hover?.screen && (
         <div className="vdv-tooltip" style={{ left: hover.screen.x + 14, top: hover.screen.y + 14 }}>
           <div>{hover.label}</div>
@@ -41,9 +43,10 @@ function HoverLayer() {
 }
 
 export function App() {
+  const [inset, setInset] = useState(false);
   return (
     <div className="vdv-app">
-      <HoverLayer />
+      <HoverLayer inset={inset} />
       <aside className="vdv-rail">
         <div className="vdv-rail__brand">
           <h1>
@@ -58,6 +61,10 @@ export function App() {
         {/* Everything else is developer tooling, tucked into a collapsible drawer. */}
         <details className="vdv-drawer">
           <summary>Dev tools</summary>
+          <label className="vdv-inset-toggle">
+            <input type="checkbox" checked={inset} onChange={(e) => setInset(e.target.checked)} />
+            Inset canvas (verify #39 — tooltip must still track the cursor)
+          </label>
           <LoadPanel />
           <TrajectoryPanel />
           <CommandsPanel />

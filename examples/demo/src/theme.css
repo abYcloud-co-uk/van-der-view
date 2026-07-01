@@ -63,6 +63,12 @@ a { color: var(--vdv-color-primary); }
 
 .vdv-canvas { flex: 1; position: relative; min-width: 0; }
 
+/* Verification harness for #39: offset the canvas from the viewport origin so `rect.left/top`
+   are non-zero. A position:fixed tooltip at HoverInfo.screen must still land on the cursor. */
+.vdv-canvas--inset { margin: 120px 0 0 200px; outline: 2px dashed var(--vdv-color-primary); outline-offset: -2px; }
+
+.vdv-inset-toggle { display: flex; align-items: center; gap: var(--vdv-space-xs); margin-bottom: var(--vdv-space-sm); font-size: 0.85rem; }
+
 .vdv-rail {
   width: 420px;
   flex-shrink: 0;
