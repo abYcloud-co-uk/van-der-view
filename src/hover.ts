@@ -25,10 +25,10 @@ export interface HoverInfo {
   /** atom name (auth_atom_id, e.g. 'CA') — only when the hovered loci is a single atom;
    *  omitted at residue/chain granularity, where it would be a misleading "first atom". */
   atomName?: string;
-  /** Pointer position as **document** coordinates (pageX/pageY, scroll-inclusive) from the hover
-   *  event; absent on non-pointer emits. A viewport-anchored tooltip (`position: fixed`) in a
-   *  scrolling layout must offset by the scroll (subtract `window.scrollX`/`scrollY`); the
-   *  full-viewport demo needs no offset because it does not scroll. */
+  /** Pointer position as **viewport/client coordinates** (like `clientX/clientY`): drop it
+   *  straight into a `position: fixed` tooltip (`left: screen.x, top: screen.y`) and it is
+   *  correct wherever the canvas sits on the page. Absent on non-pointer emits. (Converted from
+   *  Mol*'s canvas-relative hover coord at the browser seam — see `subscribeHoverEvents`.) */
   screen?: { x: number; y: number };
   /** the raw molstar loci, for advanced hosts. */
   loci: Loci;
@@ -59,6 +59,9 @@ export function toHoverInfo(event: InteractivityManager.HoverEvent): HoverInfo |
   if (Loci.isEmpty(loci)) return null;
 
   const info: HoverInfo = { label: lociLabel(loci, { htmlStyling: false }), loci };
+  // event.page is Mol*'s CANVAS-RELATIVE pointer position (misleadingly named — it is NOT DOM
+  // pageX/pageY; y is canvas-internal). Kept raw here so this stays pure; the browser seam
+  // (createMolView.subscribeHover) converts it to viewport coords before a host sees it.
   if (event.page) info.screen = { x: event.page[0], y: event.page[1] };
 
   if (StructureElement.Loci.is(loci)) {
@@ -73,6 +76,19 @@ export function toHoverInfo(event: InteractivityManager.HoverEvent): HoverInfo |
     }
   }
   return info;
+}
+
+/**
+ * Convert a canvas-relative pointer position (what Mol*'s hover event carries — see the
+ * `event.page` note in `toHoverInfo`) to viewport/client coordinates by adding the canvas's
+ * on-screen offset. `rect` is the canvas element's `getBoundingClientRect()`. Pure: the DOM
+ * read (the rect) is done at the browser seam (`createMolView`), keeping this Node-testable.
+ */
+export function viewportFromCanvasRelative(
+  rect: { left: number; top: number },
+  p: { x: number; y: number },
+): { x: number; y: number } {
+  return { x: rect.left + p.x, y: rect.top + p.y };
 }
 
 /** Minimal structural shape of the Mol* hover Subject (`plugin.behaviors.interaction.hover`),
@@ -98,6 +114,7 @@ export interface HoverSource {
 export function subscribeHoverEvents(
   source: HoverSource,
   cb: (info: HoverInfo | null) => void,
+  transformScreen?: (p: { x: number; y: number }) => { x: number; y: number },
 ): () => void {
   let primed = false;
   const sub = source.subscribe((event) => {
@@ -106,6 +123,17 @@ export function subscribeHoverEvents(
       info = toHoverInfo(event);
     } catch (err) {
       console.error('[van-der-view] subscribeHover: toHoverInfo failed:', err);
+    }
+    // event.page is canvas-relative; the browser seam supplies a transform to viewport coords.
+    // A direct caller with no transform leaves screen canvas-relative. Contained like the
+    // toHoverInfo/cb calls: a throwing transform must NOT reach the shared hover Subject (it drives
+    // Mol*'s own hover-highlight) — on throw, log and keep the raw canvas-relative coord.
+    if (info?.screen && transformScreen) {
+      try {
+        info.screen = transformScreen(info.screen);
+      } catch (err) {
+        console.error('[van-der-view] subscribeHover: transformScreen failed:', err);
+      }
     }
     // Drop only a leading "nothing hovered" seed (the BehaviorSubject's initial replay); deliver
     // everything after, and deliver a seed that is itself a hover.

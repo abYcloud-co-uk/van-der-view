@@ -6,7 +6,13 @@ import { Vec2 } from 'molstar/lib/mol-math/linear-algebra';
 import type { InteractivityManager } from 'molstar/lib/mol-plugin-state/manager/interactivity';
 import { PDB_TINY, buildStructureFromPDB } from './fixtures/structures';
 import { resolveSelection } from '../src/selection';
-import { subscribeHoverEvents, toHoverInfo, type HoverInfo, type HoverSource } from '../src/hover';
+import {
+  subscribeHoverEvents,
+  toHoverInfo,
+  viewportFromCanvasRelative,
+  type HoverInfo,
+  type HoverSource,
+} from '../src/hover';
 
 let structure: Structure;
 beforeAll(async () => { structure = await buildStructureFromPDB(PDB_TINY); });
@@ -65,6 +71,16 @@ describe('toHoverInfo', () => {
   it('always carries the raw loci', () => {
     const residue = resolveSelection({ chain: 'A', residues: [1], numbering: 'auth' }, structure);
     expect(toHoverInfo(hoverEvent(residue))!.loci).toBe(residue);
+  });
+});
+
+describe('viewportFromCanvasRelative', () => {
+  it('adds the canvas rect offset to a canvas-relative point (inset canvas)', () => {
+    expect(viewportFromCanvasRelative({ left: 200, top: 120 }, { x: 30, y: 40 })).toEqual({ x: 230, y: 160 });
+  });
+
+  it('is identity for a canvas at the viewport origin', () => {
+    expect(viewportFromCanvasRelative({ left: 0, top: 0 }, { x: 55, y: 66 })).toEqual({ x: 55, y: 66 });
   });
 });
 
@@ -133,11 +149,57 @@ describe('subscribeHoverEvents', () => {
     errorSpy.mockRestore();
   });
 
+  it('contains a throwing transformScreen and keeps the raw canvas-relative screen', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const structure = await buildStructureFromPDB(PDB_TINY);
+    const residue = resolveSelection({ chain: 'A', residues: [1], numbering: 'auth' }, structure);
+    const { source, emit } = fakeSource();
+    const cb = vi.fn();
+    subscribeHoverEvents(source, cb, () => { throw new Error('rect boom'); });
+
+    // A throwing transform must not propagate into the shared hover Subject...
+    expect(() => emit(hoverEvent(residue, [30, 40]))).not.toThrow();
+    // ...the host still gets the hover, with the raw canvas-relative coord as fallback...
+    expect((cb.mock.calls[0][0] as HoverInfo).screen).toEqual({ x: 30, y: 40 });
+    // ...and the failure is logged.
+    expect(errorSpy.mock.calls.some((c) => String(c[0]).includes('transformScreen failed'))).toBe(true);
+    errorSpy.mockRestore();
+  });
+
   it('returns an unsubscribe that tears down the source subscription', () => {
     const { source, unsubscribe } = fakeSource();
     const off = subscribeHoverEvents(source, vi.fn());
     expect(unsubscribe).not.toHaveBeenCalled();
     off();
     expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies transformScreen to a delivered info.screen (canvas-relative → viewport)', async () => {
+    const structure = await buildStructureFromPDB(PDB_TINY);
+    const residue = resolveSelection({ chain: 'A', residues: [1], numbering: 'auth' }, structure);
+    const { source, emit } = fakeSource();
+    const cb = vi.fn();
+    subscribeHoverEvents(source, cb, (p) => ({ x: p.x + 200, y: p.y + 120 }));
+    emit(hoverEvent(residue, [30, 40]));
+    expect((cb.mock.calls[0][0] as HoverInfo).screen).toEqual({ x: 230, y: 160 });
+  });
+
+  it('does not apply transformScreen when there is no screen, and passes through raw when no transform', async () => {
+    const structure = await buildStructureFromPDB(PDB_TINY);
+    const residue = resolveSelection({ chain: 'A', residues: [1], numbering: 'auth' }, structure);
+
+    // transform given, but the event carries no page → no screen → transform not applied, no throw
+    const withXform = fakeSource();
+    const cbX = vi.fn();
+    subscribeHoverEvents(withXform.source, cbX, (p) => ({ x: p.x + 1, y: p.y + 1 }));
+    withXform.emit(hoverEvent(residue)); // no page
+    expect((cbX.mock.calls[0][0] as HoverInfo).screen).toBeUndefined();
+
+    // no transform (default) → screen passes through canvas-relative (unchanged contract)
+    const noXform = fakeSource();
+    const cbN = vi.fn();
+    subscribeHoverEvents(noXform.source, cbN);
+    noXform.emit(hoverEvent(residue, [30, 40]));
+    expect((cbN.mock.calls[0][0] as HoverInfo).screen).toEqual({ x: 30, y: 40 });
   });
 });

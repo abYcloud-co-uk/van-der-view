@@ -7,7 +7,7 @@ import type { ResolveCoordinates } from '../resolve-coordinates';
 import { createExecutor } from '../executor';
 import { molstarExecutorContext } from './adapter';
 import { createXrApi, type MolViewXR } from './xr';
-import { subscribeHoverEvents, type HoverInfo } from '../hover';
+import { subscribeHoverEvents, viewportFromCanvasRelative, type HoverInfo } from '../hover';
 
 export interface CreateMolViewOptions {
   /** Canvas to render into. Required unless an already-initialized `plugin` is given. */
@@ -33,6 +33,9 @@ export interface MolView {
    * unsubscribe. A throwing callback is contained (it can't break Mol*'s own hover-highlight).
    * The empty initial state is NOT delivered — the first call corresponds to an actual hover
    * (or, if you subscribe while already hovering, that live target).
+   *
+   * `info.screen` is in **viewport/client coordinates** (ready for a `position: fixed` tooltip),
+   * converted here from Mol*'s canvas-relative hover coord via the live canvas rect (#39).
    */
   subscribeHover(cb: (info: HoverInfo | null) => void): () => void;
   xr: MolViewXR;
@@ -82,7 +85,17 @@ export async function createMolView(opts: CreateMolViewOptions): Promise<MolView
     // the executor's FIFO with queued mutations — otherwise a handle clear could run BEFORE a still-
     // queued highlight and be silently undone when that highlight later commits (external review #1).
     clearHighlight: () => dispatch({ name: 'clear-highlight', input: {} }).then(() => undefined),
-    subscribeHover: (cb) => subscribeHoverEvents(bound.behaviors.interaction.hover, cb),
+    // Mol*'s hover coord is canvas-relative; convert to viewport/client coords using the live
+    // canvas rect so a host's position:fixed tooltip tracks the cursor wherever the canvas sits
+    // (#39). getBoundingClientRect is read per-event (layout/scroll can change). If the canvas
+    // element isn't available, degrade to canvas-relative rather than throw.
+    subscribeHover: (cb) =>
+      subscribeHoverEvents(bound.behaviors.interaction.hover, cb, (p) => {
+        const canvas = bound.canvas3dContext?.canvas;
+        if (!canvas) return p;
+        const rect = canvas.getBoundingClientRect();
+        return viewportFromCanvasRelative(rect, p);
+      }),
     xr,
     plugin: bound,
     handleResize: () => bound.canvas3d?.handleResize(),
