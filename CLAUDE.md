@@ -119,8 +119,8 @@ cores have all landed** (`src/`):
   `docs/superpowers/{specs,plans}/2026-06-26-load-supersede-dedup*`.
 - **v0.3.0 release** (merged + published to GitHub Packages 2026-06-26) — bundled the hover surface (#29) and the
   load supersede/dedup cluster (#27) on top of v0.2.0; one new error code (`superseded`), no breaking changes.
-- **Conversational DeepSeek agent + OpenAI adapter** (PR #35, merged 2026-06-28; **post-v0.3.0, currently
-  unreleased**; demo GPU-verified). Core: the reserved `notImplemented('openai')` stub is now a real
+- **Conversational DeepSeek agent + OpenAI adapter** (PR #35, merged 2026-06-28; **released in v0.4.0**
+  2026-06-30; demo GPU-verified). Core: the reserved `notImplemented('openai')` stub is now a real
   **OpenAI-compatible adapter** `src/adapters/openai.ts` (DeepSeek's API is OpenAI-compatible, so the one adapter
   serves both; the divergence is that inbound `function.arguments` is a JSON *string* the adapter `JSON.parse`s),
   wired as `adapters.openai` + public `tools.openai`, with `OpenAITool`/`OpenAIToolCall` types and the dist-smoke
@@ -129,8 +129,8 @@ cores have all landed** (`src/`):
   `POST /api/chat`, never in the browser bundle), plus a "Kinetic Precision" UI redesign. Suite now **186 tests**.
   An xhigh review found no library defects; its demo/doc follow-ups (chat-failure turn-loss, unbounded history,
   proxy UTF-8 + base-URL) are tracked in `fix/pr-35-followups`.
-- **Persistent-highlight fix** (issue #38, branch `fix/highlight-persistence`; **post-v0.4.0, currently
-  unreleased**; **demo GPU-verified 2026-07-01**). The `highlight` command now uses Mol\*'s
+- **Persistent-highlight fix** (issue #38, PR #40 merged 2026-07-01; **released in v0.5.0**;
+  **demo GPU-verified 2026-07-01**). The `highlight` command now uses Mol\*'s
   **select-marking channel** (`plugin.managers.interactivity.lociSelects.selectOnly({ loci }, false)`) — the
   native ~30% tint + marking-pass edge outline, persistent across hover and representation rebuilds (selection
   lives in `structure.selection`); `clear-highlight` command + async `MolView.clearHighlight()` call
@@ -143,18 +143,32 @@ cores have all landed** (`src/`):
   recolor, no outline; also fragile across `set-color`/`set-representation`) — the pivot dissolved review
   findings #2 and #4. `highlight`'s input schema is **unchanged** (`{ selection }`) — no host codegen impact.
   No new error code. Suite now **189 tests**. See `wiki/pages/molstar-appearance.md` and `wiki/pages/glossary.md`.
+- **Hover `screen` → viewport coordinates** (issue #39, PR #41 merged 2026-07-02; **released in v0.5.0**;
+  **demo GPU-verified 2026-07-02**). `HoverInfo.screen` was documented as document coords (`pageX/pageY`) but
+  actually delivered Mol\*'s **canvas-relative** coord (`event.page` = `clientX/Y − canvasRect.left/top`), so a
+  host's `position: fixed` tooltip misplaced whenever the canvas was inset (e.g. a right-side panel; the
+  full-viewport demo masked it). It now delivers true **viewport/client coords** (`rect.left/top + canvasRel`,
+  no scroll term) — correct wherever the canvas sits. Split to keep the pure layer Node-testable: `toHoverInfo`
+  still emits the raw canvas-relative coord; new pure `viewportFromCanvasRelative(rect,p)`; `subscribeHoverEvents`
+  gained an optional `transformScreen` param (contained in a try/catch so a throwing transform can't break Mol\*'s
+  shared hover Subject — external-review fix); the only DOM read (`getBoundingClientRect` via
+  `plugin.canvas3dContext?.canvas`) lives in `create-mol-view.ts`. `HoverInfo` shape / `onHover` /
+  `subscribeHover` signatures **unchanged** — no host codegen impact; no new error code. ⚠️ **Release note:**
+  `screen` is now viewport coords, not the mis-documented page coords — downstream reading the raw value should
+  drop offset math. Demo adds a reversible "Inset canvas" verification toggle. Suite now **194 tests**. See
+  `wiki/raw/0018-hover-screen-viewport-coords-2026-07-01.md`.
 
 So the v1 runtime + the trajectory cluster + packaging + the v1.1a representation cluster + the hover surface +
 the load supersede/dedup cluster are complete and **fully GPU-validated including WebXR**, the library is
-buildable/publishable, and **v0.3.0 is published** (v0.2.0 verified in production downstream; the OpenAI/DeepSeek
-adapter from PR #35 is merged but not yet released). Next
+buildable/publishable, and **v0.5.0 is published** (bundling #38 persistent-highlight + #39 hover-screen-coords;
+v0.4.0 shipped the OpenAI/DeepSeek adapter #35; v0.2.0 verified in production downstream). Next
 (`docs/superpowers/plans/`): a **click surface** follow-up to hover (#29 shipped hover only), **v1.1b**
 (`highlight.style` + `load-scene`/`toggle-xr`, plus **multi-representation components** for mixed polymer+ligand
 selections — the one deferred limitation of the v1.1a appearance model), and **trajectory follow-ups** (in-XR
 playback, palindrome/trim/multi-trajectory). Deferred from #27: cancelling molstar's in-flight download (the FIFO
 serializer makes the survivor wait for a superseded load's download to finish) and raw-input dedup for I/O-heavy
 resolvers. A **public npm** release is the packaging follow-up (deferred to a stable version; GitHub Packages
-needs auth even for public packages). A **v0.4.0** release would bundle the OpenAI/DeepSeek adapter (#35).
+needs auth even for public packages).
 
 Commands:
 - `pnpm test` — run the Vitest suite (`pnpm test:watch` to watch)
