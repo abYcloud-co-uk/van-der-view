@@ -125,8 +125,16 @@ export function subscribeHoverEvents(
       console.error('[van-der-view] subscribeHover: toHoverInfo failed:', err);
     }
     // event.page is canvas-relative; the browser seam supplies a transform to viewport coords.
-    // A direct caller with no transform leaves screen canvas-relative.
-    if (info?.screen && transformScreen) info.screen = transformScreen(info.screen);
+    // A direct caller with no transform leaves screen canvas-relative. Contained like the
+    // toHoverInfo/cb calls: a throwing transform must NOT reach the shared hover Subject (it drives
+    // Mol*'s own hover-highlight) — on throw, log and keep the raw canvas-relative coord.
+    if (info?.screen && transformScreen) {
+      try {
+        info.screen = transformScreen(info.screen);
+      } catch (err) {
+        console.error('[van-der-view] subscribeHover: transformScreen failed:', err);
+      }
+    }
     // Drop only a leading "nothing hovered" seed (the BehaviorSubject's initial replay); deliver
     // everything after, and deliver a seed that is itself a hover.
     if (!primed) {

@@ -149,6 +149,23 @@ describe('subscribeHoverEvents', () => {
     errorSpy.mockRestore();
   });
 
+  it('contains a throwing transformScreen and keeps the raw canvas-relative screen', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const structure = await buildStructureFromPDB(PDB_TINY);
+    const residue = resolveSelection({ chain: 'A', residues: [1], numbering: 'auth' }, structure);
+    const { source, emit } = fakeSource();
+    const cb = vi.fn();
+    subscribeHoverEvents(source, cb, () => { throw new Error('rect boom'); });
+
+    // A throwing transform must not propagate into the shared hover Subject...
+    expect(() => emit(hoverEvent(residue, [30, 40]))).not.toThrow();
+    // ...the host still gets the hover, with the raw canvas-relative coord as fallback...
+    expect((cb.mock.calls[0][0] as HoverInfo).screen).toEqual({ x: 30, y: 40 });
+    // ...and the failure is logged.
+    expect(errorSpy.mock.calls.some((c) => String(c[0]).includes('transformScreen failed'))).toBe(true);
+    errorSpy.mockRestore();
+  });
+
   it('returns an unsubscribe that tears down the source subscription', () => {
     const { source, unsubscribe } = fakeSource();
     const off = subscribeHoverEvents(source, vi.fn());
